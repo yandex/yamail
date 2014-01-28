@@ -11,8 +11,7 @@
 # include <boost/weak_ptr.hpp>
 #endif // HAVE_STD_SHARED_PTR_H_
 
-YAMAIL_NS_BEGIN 
-YAMAIL_NS_COMPAT_BEGIN
+YAMAIL_FQNS_COMPAT_BEGIN
 
 #if defined(HAVE_STD_SHARED_PTR)
 using std::shared_ptr;
@@ -34,6 +33,6 @@ using boost::const_pointer_cast;
 using boost::dynamic_pointer_cast;
 #endif
 
-YAMAIL_NS_COMPAT_END 
-YAMAIL_NS_END
+YAMAIL_FQNS_COMPAT_END 
+
 #endif // _YAMAIL_COMPAT_SHARED_PTR_H_
