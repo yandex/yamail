@@ -1,0 +1,8 @@
+
+*.swp
+
+include/yamail/data/config/detail/fs
+
+include/yamail/data/config/detail/fs.cc
+
+*.h-

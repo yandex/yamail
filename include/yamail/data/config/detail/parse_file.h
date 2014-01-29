@@ -4,6 +4,7 @@
 #include <yamail/config.h>
 #include <yamail/data/config/namespace.h>
 
+#include <yamail/data/config/detail/ast_xache.h>
 #include <yamail/data/config/detail/parse.h>
 
 #include <boost/iostreams/device/mapped_file.hpp>
@@ -21,7 +22,7 @@ template <
 >
 inline bool
 parse_file (ast& nodes, std::string const& file, paths_type const& include_dirs, 
-    file_cache<ErrorHandler, IncludeHandler>& fcache,
+    ast_cache<ErrorHandler, IncludeHandler>& cache,
     ErrorHandler ehandler, IncludeHandler ihandler)
 {
   try {
@@ -33,7 +34,7 @@ parse_file (ast& nodes, std::string const& file, paths_type const& include_dirs,
     line_iterator_type l_last (input.data () + input.size ());
 
     return parse (nodes, l_first, l_last, include_dirs, 
-        fcache, ehandler, ihandler);
+        cache, ehandler, ihandler);
   }
   catch (...) {
     std::cout << "cannot open file: " << file << std::endl;

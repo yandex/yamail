@@ -29,8 +29,11 @@ class file_cache
   typedef boost::unordered_map<fs::path, ast_ptr> map_type;
 
 public:
+
+  template <typename Source>
   ast_ptr
-  get (std::string const& file, paths_type const& include_dirs = paths_type (), 
+  get (std::string const& file, 
+      paths_type const& include_dirs = paths_type (), 
       ErrorHandler ehandler = ErrorHandler (),
       IncludeHandler ihandler = IncludeHandler ())
   {

@@ -87,6 +87,12 @@ struct ast_value_printer: boost::static_visitor<std::ostream&>
     return os_;
   }
 
+  // binary TODO
+  std::ostream& operator() (void const*) const
+  {
+    return os_;
+  }
+
   std::ostream& operator() (value_void_t const&) const
   {
     return os_;

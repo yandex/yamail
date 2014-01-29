@@ -5,6 +5,7 @@
 #include <yamail/data/config/namespace.h>
 
 #include <yamail/data/config/detail/forward_iterator.h>
+#include <yamail/data/config/detail/ast_cache.h>
 #include <yamail/data/config/detail/parse.h>
 
 #include <boost/spirit/include/support_line_pos_iterator.hpp>
@@ -44,8 +45,8 @@ parse (ast& nodes, Iterator first, Iterator last,
 
   typedef error_handler<UserErrorHandler> error_handler_type;
   typedef detail::include_handler<error_handler_type> include_handler_type;
-  typedef detail::file_cache<error_handler_type, include_handler_type> 
-    file_cache_type;
+  typedef detail::ast_cache<error_handler_type, include_handler_type> 
+    cache_type;
 
 #if 0
   BOOST_MPL_ASSERT ((
@@ -72,13 +73,13 @@ parse (ast& nodes, Iterator first, Iterator last,
 #endif
 
   error_handler_type    ehandler (custom_handler);
-  file_cache_type       fcache;
+  cache_type            cache;
 
   include_handler_type  ihandler = 
-    include_handler_type (ehandler, include_dirs, fcache);
+    include_handler_type (ehandler, include_dirs, cache);
 
 
-  return detail::parse (nodes, l_first, l_last, include_dirs, fcache, 
+  return detail::parse (nodes, l_first, l_last, include_dirs, cache, 
       ehandler, ihandler);
 }
 

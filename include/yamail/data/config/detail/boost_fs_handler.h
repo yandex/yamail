@@ -20,44 +20,44 @@ namespace detail {
 namespace fs = boost::filesystem;
 namespace io = boost::iostreams;
 
+template <typename CharT = char>
 class boost_fs_handler
+  : public boost::iterator_range<CharT const*>
 {
+  typedef boost::iterator_range<CharT const*> base_t;
+
+  compat::shared_ptr<io::mapped_file_source> file_;
+
 public:
   typedef return_iterator_range category;
 
-  template <typename CharT>
-  struct range : public boost::iterator_range<CharT const*>
+  template <typename Source>
+  inline boost_fs_handler (Source const& path)
   {
-    using boost::iterator_range<CharT const*>::iterator_range;
+    open (path);
+  }
 
-    compat::shared_ptr<io::mapped_file_source> file_;
-  };
-
-  template <typename CharT>
-  struct result { typedef range<CharT> type; };
-
-  template <typename C, typename Source>
-  static inline 
-  range<C> open (Source const& path)
+  template <typename Source>
+  void open (Source const& path)
   {
     // just in case
-    fs::path normalized_path = normalize_path_impl (path);
+    // fs::path normalized_path = normalize_path_impl (path);
 
-    std::string npath_string = normalized_path.string<std::string> ();
+    std::string npath_string = fs::path (path).template string<std::string> ();
 
     compat::shared_ptr<io::mapped_file_source> file (
         compat::make_shared<io::mapped_file_source> (npath_string));
 
-    range<C> ret (file->data (), file->data () + file->size ());
-    ret.file_ = std::move (file);
-
-    return ret;
+    this->base_t::operator= ( 
+      boost::make_iterator_range (file->data (), file->data () + file->size ())
+    );
+    
+    file_ = std::move (file);
   }
 
-  template <typename C>
-  static inline void close (range<C>& file)
+  inline void close ()
   {
-    file.file_.reset ();
+    file_.reset ();
   }
 
   template <typename C, typename T, typename A>
@@ -75,6 +75,7 @@ public:
   normalize_path (C (&path)[N])
   {
     typedef typename std::remove_const<C>::type char_type;
+
     return normalize_path_impl (path).
       template string<std::basic_string<char_type> > ();
   }
@@ -96,6 +97,11 @@ public:
       template string<std::basic_string<char_type> > ();
   }
 
+  template <typename Dest, typename Src>
+  static inline Dest normalize_path_raw (Src const& path)
+  {
+    return normalize_path_impl (path). template string<Dest> ();
+  }
 
 protected:
 

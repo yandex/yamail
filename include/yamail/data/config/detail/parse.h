@@ -13,7 +13,7 @@
 #include <yamail/data/config/ast.h>
 #include <yamail/data/config/paths_type.h>
 #include <yamail/data/config/grammar.h>
-#include <yamail/data/config/detail/file_cache.h>
+#include <yamail/data/config/detail/ast_cache_fwd.h>
 
 YAMAIL_FQNS_DATA_CP_BEGIN
 namespace detail {
@@ -28,7 +28,7 @@ template <
 bool
 parse (ast& nodes, ForwardIterator first, ForwardIterator last, 
     paths_type const& include_dirs, 
-    file_cache<ErrorHandler, IncludeHandler>& fcache,
+    ast_cache<ErrorHandler, IncludeHandler>& cache,
     ErrorHandler ehandler, IncludeHandler ihandler)
 {
   BOOST_MPL_ASSERT ((
