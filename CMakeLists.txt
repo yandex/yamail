@@ -38,12 +38,10 @@ find_package(Boost REQUIRED
 )
 find_package(Threads REQUIRED)
 
-
-include_directories(SYSTEM ${Boost_INCLUDE_DIRS} "${CMAKE_INSTALL_PREFIX}/include")
 include_directories(${INCLUDE_DIR})
+include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
-file(GLOB_RECURSE SOURCES "${SOURCE_DIR}/*.cpp")
-
+file(GLOB_RECURSE SOURCES "${SOURCE_DIR}/*.cc")
 add_library(${TARGET_LIBRARY} SHARED ${SOURCES})
 target_link_libraries(${TARGET_LIBRARY} 
     ${Boost_LIBRARIES}
