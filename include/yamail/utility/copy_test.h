@@ -21,6 +21,8 @@ class copy_test
 public:
   copy_test () : id_ (id ()) { print ("CTOR_DEFAULT"); }
   copy_test (int i) : id_ (id ()) { print ("CTOR_INT"); }
+  template <typename U> 
+  copy_test (U) : id_ (id ()) { print ("CTOR_U"); }
   copy_test (copy_test const& x) : id_ (id ()) { print ("CTOR_COPY", x); }
   copy_test (copy_test&& x) : id_ (id ()) { print ("CTOR_MOVE", x); }
 
