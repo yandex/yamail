@@ -7,26 +7,22 @@
 
 #include <boost/thread.hpp>
 #include <boost/static_assert.hpp>
-#include <boost/shared_ptr.hpp>
 
 #include <boost/log/core.hpp>
 #include <boost/log/sinks.hpp>
 #include <boost/log/expressions.hpp>
-
 #include <boost/log/sources/global_logger_storage.hpp>
 #include <boost/log/sources/basic_logger.hpp>
 #include <boost/log/sources/severity_logger.hpp>
-#include <boost/log/sources/severity_channel_logger.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/filter_parser.hpp>
 #include <boost/log/utility/setup/formatter_parser.hpp>
 #include <boost/log/utility/setup/from_stream.hpp>
 #include <boost/log/utility/setup/from_settings.hpp>
-#include <boost/log/attributes/named_scope.hpp>
 
 YAMAIL_FQNS_LOG_BEGIN
 
-BOOST_LOG_GLOBAL_LOGGER_DEFAULT(global_logger, source)
+BOOST_LOG_GLOBAL_LOGGER_DEFAULT(global_logger, logger_t)
 
 using namespace YAMAIL_NS_COMPAT;
 namespace logging = boost::log;

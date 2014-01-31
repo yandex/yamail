@@ -8,18 +8,13 @@
 #include <boost/property_tree/ptree.hpp>
 
 #ifndef YPLATFORM_WITHOUT_BOOST_LOG
-#include <boost/log/sources/basic_logger.hpp>
-#include <boost/log/sources/severity_logger.hpp>
-#include <boost/log/attributes/named_scope.hpp>
-#include <boost/log/attributes/constant.hpp>
-#include <boost/log/sources/global_logger_storage.hpp>
-#include <boost/log/sources/record_ostream.hpp>
-#include <yamail/compat/shared_ptr.h>
+# include <boost/log/sources/severity_logger.hpp>
+# include <boost/log/sources/global_logger_storage.hpp>
 #else
-#include <boost/noncopyable.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/locks.hpp>
-#include <iostream>
+# include <boost/noncopyable.hpp>
+# include <boost/thread/mutex.hpp>
+# include <boost/thread/locks.hpp>
+# include <iostream>
 #endif
 
 YAMAIL_FQNS_LOG_BEGIN
@@ -34,12 +29,12 @@ enum severity_level
 
 #ifndef YPLATFORM_WITHOUT_BOOST_LOG
 
-typedef boost::log::sources::severity_logger_mt<severity_level> source;
+typedef boost::log::sources::severity_logger_mt<severity_level> logger_t;
 
 #if BOOST_VERSION < 104600
- BOOST_LOG_DECLARE_GLOBAL_LOGGER(global_logger, source)
+ BOOST_LOG_DECLARE_GLOBAL_LOGGER(global_logger, logger_t)
 #else
- BOOST_LOG_GLOBAL_LOGGER(global_logger, source)
+ BOOST_LOG_GLOBAL_LOGGER(global_logger, logger_t)
 #endif
 
 #define YAMAIL_LOG_SEV(logger,severity) BOOST_LOG_SEV(logger, YAMAIL_FQNS_LOG::severity)

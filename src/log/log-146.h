@@ -38,7 +38,7 @@
 
 YAMAIL_FQNS_LOG_BEGIN
 
-BOOST_LOG_GLOBAL_LOGGER_DEFAULT(global_logger, source)
+BOOST_LOG_GLOBAL_LOGGER_DEFAULT(global_logger, logger_t)
 
 using namespace YAMAIL_NS_COMPAT;
 namespace logging = boost::log;
