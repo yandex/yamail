@@ -271,11 +271,15 @@ void log_load_cfg(const boost::property_tree::ptree& cfg)
   for (ptree::const_iterator i_header = options->begin(),
        i_header_end = options->end(); i_header != i_header_end; ++i_header)
   {
+    if (i_header->first == "<xmlcomment>")
+      continue;
+
     stream << "[" << i_header->first << "]\n";
     for (ptree::const_iterator i_val = i_header->second.begin(),
          i_val_end = i_header->second.end(); i_val != i_val_end; ++i_val)
     {
-      stream << i_val->first << "=" << i_val->second.get_value("") << "\n";
+        if (i_val->first != "<xmlcomment>")
+            stream << i_val->first << "=" << i_val->second.get_value("") << "\n";
     }
   }
   logging::init_from_stream(stream);

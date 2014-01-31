@@ -1,4 +1,3 @@
-#ifndef YPLATFORM_WITHOUT_BOOST_LOG
 #include <yamail/log/rotate_text_file_backend.h>
 
 #include <list>
@@ -219,4 +218,3 @@ template class rotate_basic_text_file_backend< wchar_t >;
 YAMAIL_NS_LOG_END
 YAMAIL_NS_END
 
-#endif

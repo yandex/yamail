@@ -34,7 +34,13 @@ endforeach()
 set(Boost_USE_STATIC_LIBS OFF)
 add_definitions(-DBOOST_LOG_DYN_LINK)
 find_package(Boost REQUIRED
+    log
+    log_setup
+    filesystem
     system
+    thread
+    regex
+    chrono
 )
 find_package(Threads REQUIRED)
 

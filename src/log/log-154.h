@@ -235,8 +235,7 @@ void log_load_cfg(const boost::property_tree::ptree& cfg)
                 i_header->second.end(); i_val != i_val_end; ++i_val)
         {
             if (i_val->first != "<xmlcomment>")
-                stream << i_val->first << "=" << i_val->second.get_value("")
-                        << "\n";
+                stream << i_val->first << "=" << i_val->second.get_value("") << "\n";
         }
     }
     logging::init_from_stream(stream);

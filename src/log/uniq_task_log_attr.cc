@@ -1,4 +1,3 @@
-#ifndef YPLATFORM_WITHOUT_BOOST_LOG
 #include <yamail/log/uniq_task_log_attr.h>
 #include <boost/thread.hpp>
 #include <stdlib.h>
@@ -105,4 +104,3 @@ uniq_task_attr::impl::impl (std::string& val, const std::string& ini)
 
 YAMAIL_NS_LOG_END
 YAMAIL_NS_END
-#endif

@@ -36,9 +36,9 @@ YAMAIL_NS_BEGIN
 YAMAIL_NS_LOG_BEGIN
 
 #if BOOST_VERSION < 105400
-#define YLOG_EXPORT BOOST_LOG_EXPORT
+#define YAMAIL_EXPORT BOOST_LOG_EXPORT
 #else
-#define YLOG_EXPORT BOOST_LOG_API
+#define YAMAIL_EXPORT BOOST_LOG_API
 #endif
 
 /*!
@@ -90,7 +90,7 @@ public:
     /*!
      * Default constructor. The constructed sink backend uses default values of all the parameters.
      */
-    YLOG_EXPORT rotate_basic_text_file_backend();
+    YAMAIL_EXPORT rotate_basic_text_file_backend();
 
     /*!
      * Constructor. Creates a sink backend with the specified named parameters.
@@ -122,19 +122,19 @@ public:
     /*!
      * Destructor
      */
-    YLOG_EXPORT ~rotate_basic_text_file_backend();
+    YAMAIL_EXPORT ~rotate_basic_text_file_backend();
 
     /*!
      * The method sets the file open mode
      *
      * \param mode File open mode
      */
-    YLOG_EXPORT void set_open_mode(std::ios_base::openmode mode);
+    YAMAIL_EXPORT void set_open_mode(std::ios_base::openmode mode);
 
     /*!
      * Sets the flag to automatically flush buffers of all attached streams after each log record
      */
-    YLOG_EXPORT void auto_flush(bool f = true);
+    YAMAIL_EXPORT void auto_flush(bool f = true);
 
     /*!
      * The method sets file name path.
@@ -158,7 +158,7 @@ public:
 #if BOOST_VERSION < 105400
     BOOST_LOG_EXPORT void do_consume(record_type const& record, target_string_type const& formatted_message);
 #else
-    YLOG_EXPORT void consume(boost::log::record_view const& rec, string_type const& formatted_message);
+    YAMAIL_EXPORT void consume(boost::log::record_view const& rec, string_type const& formatted_message);
 #endif
 
 private:
@@ -177,13 +177,13 @@ private:
             args[boost::log::keywords::auto_flush | false]);
     }
     //! Constructor implementation
-    YLOG_EXPORT void construct(
+    YAMAIL_EXPORT void construct(
         path_type const& file_name,
         std::ios_base::openmode mode,
         bool auto_flush);
 
     //! The method sets file name
-    YLOG_EXPORT void set_file_name_internal(path_type const& file_name);
+    YAMAIL_EXPORT void set_file_name_internal(path_type const& file_name);
 
     mutex_t mux_;
 #endif // BOOST_LOG_DOXYGEN_PASS
