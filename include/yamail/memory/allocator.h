@@ -5,101 +5,165 @@
 
 #include <yamail/traits/enable_if_convertible.h>
 #include <yamail/traits/enable_if_value_or_ref.h>
+#include <yamail/compat/shared_ptr.h>
 
-// #include <yamail/data/select_map.h>
+#include <boost/atomic.hpp>
+#include <boost/thread/mutex.hpp>
 
 #include <memory>
+#include <stdexcept>
 
 YAMAIL_NS_BEGIN
 YAMAIL_NS_MEMORY_BEGIN
 
-class config
-{
+namespace compat = YAMAIL_FQNS_COMPAT;
 
+class limiter_exhausted: public std::runtime_error
+{
+public:
+    limiter_exhausted(const std::string& name): std::runtime_error(name)
+    {}
+
+    ~limiter_exhausted() _noexcept {}
 };
 
-template <typename T, typename Config, 
-         typename BaseAllocator = std::allocator<T> >
-class allocator;
-
-template <typename BaseAllocator, typename Config>
-struct allocator<void, Config, BaseAllocator> 
-  : BaseAllocator::template rebind<void>::other
+/*
+ * Concept of allocation limiter
+class limiter
 {
-  template <typename U> struct rebind {
-    typedef allocator<U, Config, 
-            typename BaseAllocator::template rebind<U>::other> other;
-  };
+    void acquire(size_t n) throw(limiter_exhausted);
+    void release(size_t n) _noexcept;
+};
+ */
+
+class strict_limiter
+{
+    class impl : public boost::noncopyable
+    {
+    public:
+        impl(size_t limit): available_(limit) {}
+
+        void acquire(size_t n) throw(limiter_exhausted)
+        {
+            boost::mutex::scoped_lock lock(mtx_);
+            if(available_ >= n)
+                available_ -= n;
+            else
+                throw limiter_exhausted("strict_limiter exhausted");
+        }
+
+        void release(size_t n) _noexcept
+        {
+            boost::mutex::scoped_lock lock(mtx_);
+            available_ += n;
+        }
+
+    private:
+        size_t available_;
+        boost::mutex mtx_;
+    };
+
+public:
+    explicit strict_limiter(size_t limit):impl_(new impl(limit)){}
+
+    void acquire(size_t n) throw(limiter_exhausted)
+    { impl_->acquire(n); }
+
+    void release(size_t n) _noexcept
+    { impl_->release(n); }
+
+private:
+    boost::shared_ptr<impl> impl_;
 };
 
-template <typename T, typename Config, typename BaseAllocator>
-class allocator: public BaseAllocator::template rebind<T>::other
+class fuzzy_limiter
+{
+    class impl : public boost::noncopyable
+    {
+    public:
+        impl(size_t limit): available_(limit) {}
+
+        void acquire(size_t n) throw(limiter_exhausted)
+        {
+            if(available_.fetch_sub(n) < static_cast<int64_t>(n))
+            {
+                available_.fetch_add(n);
+                throw limiter_exhausted("fuzzy_limiter exhausted");
+            }
+        }
+
+        void release(size_t n) _noexcept
+        {
+            available_.fetch_add(n);
+        }
+
+    private:
+        boost::atomic<int64_t> available_;
+    };
+
+public:
+    explicit fuzzy_limiter(size_t limit):impl_(new impl(limit)){}
+
+    void acquire(size_t n) throw(limiter_exhausted)
+    { impl_->acquire(n); }
+
+    void release(size_t n) _noexcept
+    { impl_->release(n); }
+
+private:
+    boost::shared_ptr<impl> impl_;
+};
+
+template <typename T, typename Limiter, typename BaseAllocator = std::allocator<T> >
+class limited_allocator: public BaseAllocator::template rebind<T>::other
 {
   typedef typename BaseAllocator::template rebind<T>::other base_t;
-  typedef Config config_type;
+  typedef Limiter limiter_t;
+
+public:
+  typedef typename base_t::size_type        size_type;
+  typedef typename base_t::difference_type  difference_type;
+  typedef typename base_t::pointer          pointer;
+  typedef typename base_t::const_pointer    const_pointer;
+  typedef typename base_t::reference        reference;
+  typedef typename base_t::const_reference  const_reference;
+  typedef typename base_t::value_type       value_type;
 
 public:
   template <typename U> struct rebind {
-    typedef allocator<U, Config, 
+    typedef limited_allocator<U, limiter_t,
             typename base_t::template rebind<U>::other> other;
   };
 
-  typedef typename allocator::size_type size_type;
-  typedef typename allocator::pointer pointer;
-  typedef typename allocator::const_pointer const_pointer;
+  limited_allocator() _noexcept {}
 
-  allocator () _noexcept {}
-
-  template <typename U, typename A>
-  allocator (allocator<U,config_type,A>&& alloc,
-      typename traits::enable_if_convertible<A, base_t>::type* = 0
-  ) _noexcept 
-    : base_t (std::move (alloc)) 
+  limited_allocator(limiter_t const& limiter) _noexcept
+    : base_t()
+    , limiter_(limiter)
   {
   }
 
   template <typename U, typename A>
-  allocator (allocator<U,config_type,A> const& alloc,
+  limited_allocator (limited_allocator<U,limiter_t,A> const& allocator,
       typename traits::enable_if_convertible<A, base_t>::type* = 0
   ) _noexcept 
-    : base_t (alloc) 
-  {
-  }
-
-  template <typename Cfg, typename Alloc>
-  allocator (Cfg&& cfg, Alloc&& alloc,
-        typename traits::enable_if_value_or_ref<Cfg, config_type>::type* = 0
-      , typename traits::enable_if_convertible<Alloc, base_t>::type* = 0
-  )  _noexcept
-    : base_t (std::forward<Alloc> (alloc))
-    , config_ (std::forward<Cfg> (cfg))
-  {
-  }
-
-  template <typename Cfg>
-  allocator (Cfg&& cfg,
-        typename traits::enable_if_value_or_ref<Cfg, config_type>::type* = 0
-  )  _noexcept
-    : base_t ()
-    , config_ (std::forward<Cfg> (cfg))
+    : base_t (allocator)
+    , limiter_(allocator.limiter())
   {
   }
 
   pointer allocate (size_type n, 
       typename base_t::template rebind<void>::other::const_pointer hint=0)
   {
-    // ... check if memory is available ...
-    config_.check (n);
+    limiter_.acquire(n * sizeof(T));
     
     pointer p;
-
     try { 
-      p = this->base_t::allocate (n, hint);
+      p = this->base_t::allocate(n, hint);
     }
     catch (...)
     {
-      // ... roll back memory counters ...
-      config_.free (n);
+      limiter_.release(n * sizeof(T));
       throw;
     }
 
@@ -108,15 +172,17 @@ public:
 
   void deallocate (pointer p, size_type n)
   {
-    // ... redo memory counters ...
-    config_.free (n);
+    limiter_.release(n * sizeof(T));
     this->base_t::deallocate (p, n);
   }
 
   size_type max_size () const _noexcept;
 
+  limiter_t limiter() const
+  { return limiter_; }
+
 private:
-  config_type config_;
+  limiter_t limiter_;
 };
 
 
