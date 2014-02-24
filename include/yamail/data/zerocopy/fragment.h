@@ -4,16 +4,16 @@
 #include <yamail/config.h>
 #include <yamail/data/zerocopy/namespace.h>
 
-#include <yamail/data/zerocopy/chunk.h>
-
 #include <memory>
 #include <cstddef> // std::size_t
 
 YAMAIL_FQNS_DATA_ZC_BEGIN
 namespace detail {
 
-class basic_fragment : public const_base_chunk {
+class basic_fragment {
 public:
+    typedef char byte_t;
+
     basic_fragment () : size_ (0), data_ (0) {
     }
 

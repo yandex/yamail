@@ -150,9 +150,9 @@ public:
         std::size_t result = 0;
         for (++next; i != end; ++i) {
             if (i == begin || next == end) {
-                const const_base_chunk::byte_t* data_begin =
+                const detail::basic_fragment::byte_t* data_begin =
                 (i == begin ? head_ : (*i)->buff ().first);
-                const const_base_chunk::byte_t* data_end =
+                const detail::basic_fragment::byte_t* data_end =
                 (next == end
                         ? tail_
                         : (*i)->buff ().first + (*i)->buff ().second);
