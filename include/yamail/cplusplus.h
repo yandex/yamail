@@ -23,7 +23,7 @@
 
 #endif // earlier than C++11
 
-// fix spirit 
+// fix spirit (boost 1.55)
 #if YAMAIL_CPP >= 11
 #define BOOST_RESULT_OF_USE_TR1_WITH_DECLTYPE_FALLBACK 1
 #endif

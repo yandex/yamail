@@ -14,7 +14,7 @@ namespace detail {
 
 template <
     typename ErrorHandler   // = error_handler
-  , typename IncludeHandler // = include_handler<ErrorHandler>
+//  , typename IncludeHandler // = include_handler<ErrorHandler>
   , typename FS = boost_fs_handler<char> 
 >
 class ast_cache;

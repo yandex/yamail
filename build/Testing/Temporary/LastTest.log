@@ -1,0 +1,39 @@
+Start testing: Feb 21 19:47 MSK
+----------------------------------------------------------
+1/1 Testing: include_opener
+1/1 Test: include_opener
+Command: "/Users/nikki/Work/github/yamail/build/tests/data/config/include_opener"
+Directory: /Users/nikki/Work/github/yamail/build/tests/data/config
+"include_opener" start time: Feb 21 19:47 MSK
+Output:
+----------------------------------------------------------
+Running main() from gtest_main.cc
+[==========] Running 3 tests from 3 test cases.
+[----------] Global test environment set-up.
+[----------] 1 test from IncludeOpenerTest
+[ RUN      ] IncludeOpenerTest.HandlesOpenSingleFile
+[       OK ] IncludeOpenerTest.HandlesOpenSingleFile (0 ms)
+[----------] 1 test from IncludeOpenerTest (0 ms total)
+
+[----------] 1 test from IncludeCacheTest
+[ RUN      ] IncludeCacheTest.HandlesOpenSingleFile
+[       OK ] IncludeCacheTest.HandlesOpenSingleFile (0 ms)
+[----------] 1 test from IncludeCacheTest (0 ms total)
+
+[----------] 1 test from IncludeTest
+[ RUN      ] IncludeTest.ComparesOpenerAndCached
+[       OK ] IncludeTest.ComparesOpenerAndCached (1 ms)
+[----------] 1 test from IncludeTest (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 3 tests from 3 test cases ran. (1 ms total)
+[  PASSED  ] 3 tests.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"include_opener" end time: Feb 21 19:47 MSK
+"include_opener" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Feb 21 19:47 MSK

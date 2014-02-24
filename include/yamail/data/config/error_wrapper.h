@@ -1,8 +1,11 @@
-#ifndef _YAMAIL_DATA_CONFIG_ERROR_HANDLER_H_
-#define _YAMAIL_DATA_CONFIG_ERROR_HANDLER_H_
+#ifndef _YAMAIL_DATA_CONFIG_ERROR_WRAPPER_H_
+#define _YAMAIL_DATA_CONFIG_ERROR_WRAPPER_H_
 
 #include <yamail/config.h>
 #include <yamail/data/config/namespace.h>
+
+#include <yamail/compat/shared_ptr.h>
+
 
 #include <string>
 #include <sstream>
@@ -11,14 +14,14 @@
 #include <boost/spirit/home/support/info.hpp>
 #include <boost/spirit/include/support_line_pos_iterator.hpp>
 
-#include <boost/shared_ptr.hpp>
-#include <boost/make_shared.hpp>
-
 #include <yamail/data/config/detail/line_iterator_fixed.h>
 
 YAMAIL_FQNS_DATA_CP_BEGIN
 
-using boost::spirit::info;
+namespace detail {
+
+namespace spirit = boost::spirit;
+namespace qi = spirit::qi;
 
 template <typename Out>
 struct print_info 
@@ -29,21 +32,19 @@ struct print_info
 
   void element (string const& tag, string const& value, int) const
   {
-    if (first) 
-      first = false;
-    else
-      out << ' ';
+    if (first) first = false;
+    else out << ' ';
     
 
-    if (value == "") 
-      out << tag;
-    else
-      out << '"' << value << '"';
+    if (value == "") out << tag;
+    else out << '"' << value << '"';
   }
 
   Out& out;
   mutable bool first;
 }; // print_info
+
+} // namespace detail
 
 struct expected_component : std::exception 
 { 
@@ -53,7 +54,8 @@ struct expected_component : std::exception
 
   template <typename Iterator>
   expected_component (std::string const& source, std::size_t line, 
-      info const& w, boost::iterator_range<Iterator> const& cline,
+      boost::spirit::info const& w, 
+      boost::iterator_range<Iterator> const& cline,
       std::size_t col)
   : current_line (cline.begin (), cline.end ())
   , column (col)
@@ -68,8 +70,9 @@ struct expected_component : std::exception
 
     oss << " '(expected_component (";
 
-    print_info <std::ostringstream> pr (oss);
-    basic_info_walker<print_info<std::ostringstream> > walker(pr, w.tag, 0);
+    detail::print_info <std::ostringstream> pr (oss);
+    basic_info_walker<detail::print_info<std::ostringstream> > 
+      walker(pr, w.tag, 0);
 
     boost::apply_visitor(walker, w.value);
 
@@ -86,12 +89,12 @@ struct expected_component : std::exception
   }
 }; // expected_component
 
-namespace qi = boost::spirit::qi;
 
-struct default_custom_error_handler
+struct default_error_handler
 {
   template <typename Iterator>
-  bool operator() (std::string const& source, info const& w, 
+  bool operator() (
+      std::string const& source, boost::spirit::info const& w, 
       std::size_t line_n, std::size_t col,
       boost::iterator_range<Iterator> const& cline) const
   {
@@ -100,9 +103,13 @@ struct default_custom_error_handler
   }
 };
 
-template <typename CustomHandler = default_custom_error_handler>
-struct error_handler
+template <typename ErrorHandler = default_error_handler>
+struct error_wrapper
 {
+  // for phoenix v3
+  typedef void result_type;
+
+  // for phoenix v2
   template <typename, typename, typename, typename, typename>
   struct result
   {
@@ -110,66 +117,54 @@ struct error_handler
   };
 
   std::string source_;
-  CustomHandler* custom_;
-  boost::shared_ptr<CustomHandler> custom_own_;
+  ErrorHandler* error_handler_;
+  compat::shared_ptr<ErrorHandler> error_handler_own_;
 
-  void custom_init (CustomHandler& custom) 
+  // if reference - use it inplace. otherwise - copy.
+  void error_handler_init (ErrorHandler& error_handler) 
   {
-    custom_ = &custom;
+    error_handler_ = &error_handler;
   }
 
-  void custom_init (CustomHandler const& custom)
+  void error_handler_init (ErrorHandler const& error_handler)
   {
-    custom_own_ = boost::make_shared<CustomHandler> (custom);
-    custom_ = custom_own_.get ();
+    error_handler_own_ = compat::make_shared<ErrorHandler> (error_handler);
+    error_handler_ = error_handler_own_.get ();
   }
 
-#if __cplusplus >= 201103L
-  void custom_init (CustomHandler&& custom) 
+  void error_handler_init (ErrorHandler&& error_handler) 
   {
-    custom_ = &custom;
+    error_handler_own_ = 
+      compat::make_shared<ErrorHandler> (std::move (error_handler));
+
+    error_handler_ = error_handler_own_.get ();
   }
-#endif // C++11
 
-  error_handler(std::string const& source = "<string>",
-      CustomHandler const& custom = CustomHandler ()) 
+  template <typename EH = ErrorHandler, class = std::enable_if<
+    std::is_same<ErrorHandler, typename std::decay<EH>::type>::value> >
+  error_wrapper(
+      std::string const& source = "<string>",
+      EH&& error_handler = ErrorHandler ()) 
     : source_ (source)
-  { custom_init (custom); }
+  { error_handler_init (std::forward<EH> (error_handler)); }
 
-  error_handler(CustomHandler const& custom,
+  template <typename EH = ErrorHandler, class = std::enable_if<
+    std::is_same<ErrorHandler, typename std::decay<EH>::type>::value> >
+  error_wrapper(
+      ErrorHandler&& error_handler,
       std::string const& source = "<string>")
     : source_ (source)
-  { custom_init (custom); }
-
-  error_handler(std::string const& source, CustomHandler& custom) 
-    : source_ (source)
-  { custom_init (custom); }
-
-  error_handler(CustomHandler& custom,
-      std::string const& source = "<string>")
-    : source_ (source)
-  { custom_init (custom); }
-
-#if __cplusplus >= 201103L
-  error_handler(std::string const& source,
-      CustomHandler&& custom) 
-    : source_ (source)
-  { custom_init (custom); }
-
-  error_handler(CustomHandler&& custom,
-      std::string const& source = "<string>")
-    : source_ (source)
-  { custom_init (custom); }
-#endif
+  { error_handler_init (std::forward<EH> (error_handler)); }
 
   template <typename Iterator>
-  void operator()(qi::error_handler_result& action, 
+  void operator() (
+      boost::spirit::qi::error_handler_result& action, 
       Iterator first, Iterator last, Iterator err_pos,
-      info const& what) const
+      boost::spirit::info const& what) const
   {
     using boost::spirit::get_line;
-    using qi::retry;
-    using qi::fail;
+    using boost::spirit::qi::retry;
+    using boost::spirit::qi::fail;
 
     Iterator eol = err_pos;
     std::size_t line_n = get_line(err_pos);
@@ -182,9 +177,10 @@ struct error_handler
     // std::cerr << "string with error: " << line << "\n";
     // throw expected_component(source, line_n, what, line, column);
     
-    action = (*custom_) (source_, what, line_n, column, line) ? retry : fail;
+    action = (*error_handler_) (source_, what, line_n, column, line) 
+      ? retry : fail;
   }
 };
 
 YAMAIL_FQNS_DATA_CP_END
-#endif // _YAMAIL_DATA_CONFIG_ERROR_HANDLER_H_
+#endif // _YAMAIL_DATA_CONFIG_ERROR_WRAPPER_H_

@@ -21,8 +21,7 @@ class copy_test
 public:
   copy_test () : id_ (id ()) { print ("CTOR_DEFAULT"); }
   copy_test (int i) : id_ (id ()) { print ("CTOR_INT"); }
-  template <typename U> 
-  copy_test (U) : id_ (id ()) { print ("CTOR_U"); }
+  template <typename U> copy_test (U) : id_ (id ()) { print ("CTOR_U"); }
   copy_test (copy_test const& x) : id_ (id ()) { print ("CTOR_COPY", x); }
   copy_test (copy_test&& x) : id_ (id ()) { print ("CTOR_MOVE", x); }
 
@@ -48,6 +47,8 @@ public:
     print ("PING");
     return id_;
   }
+
+  int i = 0;
 
 private:
   void print_helper (std::string const& s) const

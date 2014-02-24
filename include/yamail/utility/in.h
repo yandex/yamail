@@ -81,7 +81,7 @@ struct rw_in
   //
   struct storage
   {
-    storage (): created (false) {}
+    storage (): created (false), data () {}
     ~storage () {if (created) reinterpret_cast<T*> (&data)->~T ();}
 
     bool created;
