@@ -9,23 +9,20 @@
 #include <utility> // std::pair
 #include <cstddef> // std::size_t
 
-
 YAMAIL_FQNS_DATA_ZC_BEGIN
 
-class base_chunk
-{
+class base_chunk {
 public:
-  typedef char byte_t;
-  virtual std::pair<byte_t*, std::size_t> buff() = 0;
-  virtual ~base_chunk() {}
+    typedef char byte_t;
+    virtual std::pair<byte_t*, std::size_t> buff() = 0;
+    virtual ~base_chunk() {}
 };
 
-class const_base_chunk
-{
+class const_base_chunk {
 public:
-  typedef char byte_t;
-  virtual std::pair<const byte_t*, std::size_t> buff() = 0;
-  virtual ~const_base_chunk() {}
+    typedef char byte_t;
+    virtual std::pair<const byte_t*, std::size_t> buff() = 0;
+    virtual ~const_base_chunk() {}
 };
 
 typedef compat::shared_ptr<base_chunk> base_chunk_ptr;

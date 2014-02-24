@@ -37,1109 +37,1030 @@ namespace zerocopy {
 
 namespace asio = ::boost::asio;
 
-template <
-  // used for streambuf
-  typename CharT = char
-, typename Traits = std::char_traits<CharT>
-  // used for allocating IO buffers (fragments)
-, typename FragmentAlloc = std::allocator<CharT>
-  // used for allocating everithing else,
-  // mostly: internal containers entries, shared_ptr internals
-, typename Alloc = std::allocator<void>
->
-class basic_streambuf
-  : public std::basic_streambuf<CharT, Traits>
-  , boost::noncopyable
-{
-  typedef CharT char_type;
-  typedef Traits traits_type;
-  typedef FragmentAlloc fragment_allocator_type;
-  typedef Alloc allocator_type;
+template<
+// used for streambuf
+        typename CharT = char, typename Traits = std::char_traits<CharT>
+        // used for allocating IO buffers (fragments)
+        , typename FragmentAlloc = std::allocator<CharT>
+        // used for allocating everithing else,
+        // mostly: internal containers entries, shared_ptr internals
+        , typename Alloc = std::allocator<void> >
+class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
+        boost::noncopyable {
+    typedef CharT char_type;
+    typedef Traits traits_type;
+    typedef FragmentAlloc fragment_allocator_type;
+    typedef Alloc allocator_type;
 
-  typedef std::basic_streambuf<char_type, traits_type> streambuf_type;
+    typedef std::basic_streambuf<char_type, traits_type> streambuf_type;
 
-  typedef detail::basic_raii_fragment<fragment_allocator_type> fragment_type;
-  typedef compat::shared_ptr<fragment_type> fragment_ptr;
+    typedef detail::basic_raii_fragment<fragment_allocator_type> fragment_type;
+    typedef compat::shared_ptr<fragment_type> fragment_ptr;
 
-  typedef typename fragment_type::const_iterator fragment_const_iterator;
+    typedef typename fragment_type::const_iterator fragment_const_iterator;
 
-  typedef typename allocator_type::template rebind<fragment_ptr>::other
-    fragment_list_allocator;
+    typedef typename allocator_type::template rebind<fragment_ptr>::other fragment_list_allocator;
 
-  typedef std::list<fragment_ptr, fragment_list_allocator> fragment_list;
-  typedef typename fragment_list::const_iterator fragment_list_const_iterator;
+    typedef std::list<fragment_ptr, fragment_list_allocator> fragment_list;
+    typedef typename fragment_list::const_iterator fragment_list_const_iterator;
 
-  // deallocator for shared_ptr
-  template <typename Al>
-  class deallocator
-  {
-    // NB: the life time of deallocator may be longer than 
-    // life time of the streambuf, so we cannot use reference here. 
-    // If allocator copy will be costly, should use shared ptrs instead.
-    Al& alloc_;
+    // deallocator for shared_ptr
+    template<typename Al>
+    class deallocator {
+        // NB: the life time of deallocator may be longer than
+        // life time of the streambuf, so we cannot use reference here.
+        // If allocator copy will be costly, should use shared ptrs instead.
+        Al& alloc_;
 
-  public:
-    explicit deallocator (Al& a)
-      : alloc_ (a)
-    {}
+    public:
+        explicit deallocator(Al& a) : alloc_(a) {
+        }
 
-    template <typename T>
-    void 
-    operator() (T* t)
-    {
-      alloc_.destroy (t);
-      alloc_.deallocate (t, 1);
-    }
-  };
+        template<typename T>
+        void operator()(T* t) {
+            alloc_.destroy(t);
+            alloc_.deallocate(t, 1);
+        }
+    };
 
-  // allocator guard - very similar to auto_ptr
-  template <typename T, typename A = std::allocator<T> >
-  class alloc_guard
-  {
-    A alloc;
-    T* ptr;
+    // allocator guard - very similar to auto_ptr
+    template<typename T, typename A = std::allocator<T> >
+    class alloc_guard {
+        A alloc;
+        T* ptr;
 
-  public:
-    alloc_guard (T* t, A a = A ()) : alloc (a), ptr (t) {}
-    ~alloc_guard ()
-    {
-      if (ptr)
-      {
-        alloc.destroy (ptr);
-        alloc.deallocate (ptr, 1);
-      }
-    }
+    public:
+        alloc_guard(T* t, A a = A()) : alloc(a), ptr(t) {
+        }
 
-    T* get () { return ptr; }
-    T* release () 
-    {
-      T* tmp (ptr);
-      ptr = 0;
-      return tmp;
-    }
-    void reset (T* t = 0)
-    {
-      alloc_guard tmp (t);
-      std::swap (*this, tmp);
-    }
-  };
+        ~alloc_guard() {
+            if (ptr) {
+                alloc.destroy(ptr);
+                alloc.deallocate(ptr, 1);
+            }
+        }
 
-  // private vars
+        T* get() {
+            return ptr;
+        }
+        T* release() {
+            T* tmp(ptr);
+            ptr = 0;
+            return tmp;
+        }
+        void reset(T* t = 0) {
+            alloc_guard tmp(t);
+            std::swap(*this, tmp);
+        }
+    };
 
-  std::size_t max_size_;
+    // private vars
 
-  // probably not needed
-  std::size_t size_;
+    std::size_t max_size_;
 
-  std::size_t inter_size_; // bytes between egptr and pbase
-  std::size_t tail_size_;  // bytes after epptr
+    // probably not needed
+    std::size_t size_;
 
-  // probably not needed, 
-  // = size () + put_size () + (eback - fragments_.begin)
-  std::size_t total_size_; 
+    std::size_t inter_size_; // bytes between egptr and pbase
+    std::size_t tail_size_;  // bytes after epptr
 
-  std::size_t min_fragmentation_;
-  std::size_t max_fragmentation_;
+    // probably not needed,
+    // = size () + put_size () + (eback - fragments_.begin)
+    std::size_t total_size_;
 
-  fragment_allocator_type fallocator_;
-  allocator_type allocator_;
+    std::size_t min_fragmentation_;
+    std::size_t max_fragmentation_;
 
-  fragment_list           fragments_;
+    fragment_allocator_type fallocator_;
+    allocator_type allocator_;
 
-  fragment_list_const_iterator put_active_;    // active 'put' fragment - this is where 
-                                               // pbase, pptr, epptr refers to
-  // utility functions
+    fragment_list fragments_;
 
-  // returns the occupied space by of fragment pointed by iterator 'iter'
-  std::size_t fragment_size (fragment_list_const_iterator const& iter) const
-  {
-    std::size_t size = detail::buffer_size (**iter);
+    fragment_list_const_iterator put_active_; // active 'put' fragment - this is where
+                                              // pbase, pptr, epptr refers to
+    // utility functions
+
+    // returns the occupied space by of fragment pointed by iterator 'iter'
+    std::size_t fragment_size(fragment_list_const_iterator const& iter) const {
+        std::size_t size = detail::buffer_size(**iter);
 #if 0
-    if (iter == fragments_.begin ()) size -= front_free_;
-    if (iter == put_active ()) size -= tail_free_;
+        if (iter == fragments_.begin ()) size -= front_free_;
+        if (iter == put_active ()) size -= tail_free_;
 #endif
-    return size;
-  }
+        return size;
+    }
 
+    std::size_t const& inter_size() const {
+        return inter_size_;
+    }
 
-  std::size_t const& inter_size () const 
-  { 
-    return inter_size_;
-  }
+    std::size_t const& tail_size() const {
+        return tail_size_;
+    }
 
-  std::size_t const& tail_size () const { return tail_size_; }
+    std::size_t put_size() const {
+        return tail_size() + (this->epptr() - this->pptr());
+    }
 
-  std::size_t put_size () const 
-  { 
-    return tail_size () + (this->epptr () - this->pptr ()); 
-  }
+    std::size_t const& total_size() const {
+        return total_size_;
+    }
 
-  std::size_t const& total_size () const { return total_size_; }
+    // XXX: may be "&" ?
+    fragment_list_const_iterator const get_active() const {
+        return fragments_.begin();
+    }
 
-  fragment_list_const_iterator const
-  get_active () const { return fragments_.begin (); }
+    fragment_list_const_iterator const& put_active() const {
+        return put_active_;
+    }
 
-  fragment_list_const_iterator const&
-  put_active () const { return put_active_; }
+    fragment_list_const_iterator& put_active() {
+        return put_active_;
+    }
 
-  fragment_list_const_iterator&
-  put_active () { return put_active_; }
-
-  // check if iterator points to the last fragments_ element
-  template <typename FragmentsIterator>
-  bool points_to_last_fragment (FragmentsIterator const& iter) const
-  {
-    assert (! fragments_.empty ()); 
-    return *fragments_.rbegin () == *iter;
-  }
+    // check if iterator points to the last fragments_ element
+    template<typename FragmentsIterator>
+    bool points_to_last_fragment(FragmentsIterator const& iter) const {
+        assert(!fragments_.empty());
+        return *fragments_.rbegin() == *iter;
+    }
 
 #if YDEBUG
-  template <typename C, typename T>
-  void print_debug (std::basic_ostream<C,T>& os, int line) const
-  {
-    // print line number
-    os << line << ": ";
-
-    // get area is always first one
-    os << "[";
-
-    // print unused
-    if (this->eback () != (*get_active ())->begin ())
-      os << (this->eback () - (*get_active ())->begin ()) << '-';
-
-    // print get area
-    os << "(G:" << (this->gptr () - this->eback ()) << ':'
-      << (this->egptr () - this->gptr ()) << ')';
-
-    // print area between get and put
-    if (get_active () != put_active ())
+    template <typename C, typename T>
+    void print_debug (std::basic_ostream<C,T>& os, int line) const
     {
-      if (this->egptr () != (*get_active ())->end ())
-        os << '-' << ((*get_active ())->end () - this->egptr ());
-      
-      os << "] ";
+        // print line number
+        os << line << ": ";
 
-      // print fragments between get and put
-      fragment_list_const_iterator iter = get_active ();
-      while (++iter != put_active ())
-        os << '[' << detail::buffer_size (**iter) << "] ";
+        // get area is always first one
+        os << "[";
 
-      os << "[";
-      if (this->pbase () != (*put_active ())->begin ())
-        os << (this->pbase () - (*put_active ())->begin ()) << '-';
+        // print unused
+        if (this->eback () != (*get_active ())->begin ())
+        os << (this->eback () - (*get_active ())->begin ()) << '-';
+
+        // print get area
+        os << "(G:" << (this->gptr () - this->eback ()) << ':'
+        << (this->egptr () - this->gptr ()) << ')';
+
+        // print area between get and put
+        if (get_active () != put_active ())
+        {
+            if (this->egptr () != (*get_active ())->end ())
+            os << '-' << ((*get_active ())->end () - this->egptr ());
+
+            os << "] ";
+
+            // print fragments between get and put
+            fragment_list_const_iterator iter = get_active ();
+            while (++iter != put_active ())
+            os << '[' << detail::buffer_size (**iter) << "] ";
+
+            os << "[";
+            if (this->pbase () != (*put_active ())->begin ())
+            os << (this->pbase () - (*put_active ())->begin ()) << '-';
+        }
+        else
+        os << '-';
+
+        // print put area
+        os << "(P:" << (this->pptr () - this->pbase ()) << ':'
+        << (this->epptr () - this->pptr ()) << ')';
+
+        std::size_t tail = 0;
+        // print free
+        if (this->epptr () != (*put_active ())->end ())
+        {
+            os << '-' << ((*put_active ())->end () - this->epptr ());
+            tail += ((*put_active ())->end () - this->epptr ());
+        }
+
+        os << ']';
+
+        fragment_list_const_iterator iter = put_active ();
+        while (++iter != fragments_.end ())
+        {
+            os << " [" << detail::buffer_size (**iter) << ']';
+            tail += detail::buffer_size (**iter);
+        }
+
+        os << '\n';
+
+        os << "TAIL=" << tail << ", TAIL_SIZE=" << tail_size () << "\n";
+        assert (tail == tail_size ());
     }
-    else
-      os << '-';
-
-    // print put area
-    os << "(P:" << (this->pptr () - this->pbase ()) << ':'
-      << (this->epptr () - this->pptr ()) << ')';
-
-    std::size_t tail = 0;
-    // print free
-    if (this->epptr () != (*put_active ())->end ())
-    {
-      os << '-' << ((*put_active ())->end () - this->epptr ());
-      tail += ((*put_active ())->end () - this->epptr ());
-    }
-
-    os << ']';
-
-    fragment_list_const_iterator iter = put_active ();
-    while (++iter != fragments_.end ())
-    {
-      os << " [" << detail::buffer_size (**iter) << ']';
-      tail += detail::buffer_size (**iter);
-    }
-
-    os << '\n';
-
-    os << "TAIL=" << tail << ", TAIL_SIZE=" << tail_size () << "\n";
-    assert (tail == tail_size ());
-  }
 #endif
 public:
 
-  typedef typename allocator_type::template rebind<asio::mutable_buffer>::other
-    mutable_buffers_allocator;
+    typedef typename allocator_type::template rebind<asio::mutable_buffer>::other mutable_buffers_allocator;
 
-  typedef std::vector<asio::mutable_buffer, mutable_buffers_allocator> mutable_buffers_type;
+    typedef std::vector<asio::mutable_buffer, mutable_buffers_allocator> mutable_buffers_type;
 
-  typedef typename allocator_type::template rebind<asio::const_buffer>::other
-    const_buffers_allocator;
+    typedef typename allocator_type::template rebind<asio::const_buffer>::other const_buffers_allocator;
 
-  typedef std::vector<asio::const_buffer, const_buffers_allocator> const_buffers_type;
+    typedef std::vector<asio::const_buffer, const_buffers_allocator> const_buffers_type;
 
-  template <typename T>
-  struct iteratorT
-  {
-    typedef zerocopy::iterator<T, fragment_type, fragment_list> type;
-  };
+    template<typename T>
+    struct iteratorT {
+        typedef zerocopy::iterator<T, fragment_type, fragment_list> type;
+    };
 
-  typedef typename iteratorT<char_type>::type iterator;
+    typedef typename iteratorT<char_type>::type iterator;
 
 #if 0
-  template <typename T>
-  struct segmentT
-  {
-    typedef zerocopy::segment<T> type;
-  };
+    template <typename T>
+    struct segmentT {
+        typedef zerocopy::segment<T> type;
+    };
 
-  typedef segmentT<char>::type segment;
+    typedef segmentT<char>::type segment;
 #endif
 
-  typedef basic_segment<allocator_type> segment_type;
+    typedef basic_segment<allocator_type> segment_type;
 
-  inline fragment_allocator_type const& 
-  get_fallocator () const
-  {
-    return fallocator_;
-  }
+    fragment_allocator_type const& get_fallocator() const {
+        return fallocator_;
+    }
 
-  inline allocator_type const&
-  get_allocator () const
-  {
-    return allocator_;
-  }
+    allocator_type const& get_allocator() const {
+        return allocator_;
+    }
 
-  basic_streambuf (
-      std::size_t min_fragmentation = 512
-    , std::size_t max_fragmentation = 1024*1024
-    , std::size_t start_fragments = 0    // defaults to 1
-    , std::size_t start_fragment_len = 0 // defaults to fragmentation
-    , std::size_t max_size = (std::numeric_limits<std::size_t>::max)()
-    , fragment_allocator_type const& fallocator = fragment_allocator_type ()
-    , allocator_type const& allocator = allocator_type ()
-  )
-    : size_ (0)
-    , inter_size_ (0)
-    , tail_size_ (0)
-    , total_size_ (0)
+    basic_streambuf(std::size_t min_fragmentation = 512,
+            std::size_t max_fragmentation = 1024 * 1024,
+            std::size_t start_fragments = 0    // defaults to 1
+            ,
+            std::size_t start_fragment_len = 0 // defaults to fragmentation
+            , std::size_t max_size = (std::numeric_limits<std::size_t>::max)(),
+            fragment_allocator_type const& fallocator =
+                    fragment_allocator_type(), allocator_type const& allocator =
+                    allocator_type()) :
+            size_(0), inter_size_(0), tail_size_(0), total_size_(0)
 //    , front_free_ (0)
 //    , tail_free_ (0)
-    , min_fragmentation_ (min_fragmentation ? min_fragmentation : 512)
-    , max_fragmentation_ (
-        std::max (
-          min_fragmentation_, 
-          max_fragmentation ? max_fragmentation 
-                            : std::max <std::size_t> (min_fragmentation_, 1024*1024)
-        )
-      )
-    , fallocator_ (fallocator)
-    , allocator_ (allocator)
-    , fragments_ (allocator_)
-  {
-    if (! start_fragment_len)
-      start_fragment_len = min_fragmentation_;
+                    , min_fragmentation_(
+                    min_fragmentation ? min_fragmentation : 512), max_fragmentation_(
+                    std::max(min_fragmentation_,
+                            max_fragmentation ?
+                                    max_fragmentation :
+                                    std::max<std::size_t>(min_fragmentation_,
+                                            1024 * 1024))), fallocator_(
+                    fallocator), allocator_(allocator), fragments_(allocator_) {
+        if (!start_fragment_len) {
+            start_fragment_len = min_fragmentation_;
+        }
 
-    if (! start_fragments)
-      start_fragments = 1;
+        if (!start_fragments) {
+            start_fragments = 1;
+        }
 
-    if (! max_size)
-      max_size = (std::numeric_limits<std::size_t>::max)();
+        if (!max_size) {
+            max_size = (std::numeric_limits<std::size_t>::max)();
+        }
 
-    max_size_ = max_size;
+        max_size_ = max_size;
 
+        typedef typename allocator_type::template rebind<fragment_type>::other AF;
 
-    typedef typename allocator_type::template rebind<fragment_type>::other AF;
+        AF af(allocator_);
 
-    AF af (allocator_);
-
-    while (start_fragments--)
-    {
-      alloc_guard<fragment_type> ptr (af.allocate (1)); 
+        while (start_fragments--) {
+            alloc_guard<fragment_type> ptr(af.allocate(1));
 
 #if 0
-      // this needs a copy constructor, which is slow and absent anyway
-      af.construct (ptr.get (), fragment_type (start_fragment_len, fallocator_));
+            // this needs a copy constructor, which is slow and absent anyway
+            af.construct (ptr.get (), fragment_type (start_fragment_len, fallocator_));
 #else
-      new (static_cast<void*> (ptr.get ())) 
-        fragment_type (start_fragment_len, fallocator_);
+            new (static_cast<void*>(ptr.get())) fragment_type(
+                    start_fragment_len, fallocator_);
 #endif
-      fragments_.push_back (
-          fragment_ptr (
-              ptr.release ()
-            , deallocator<AF> (af)
-            , allocator_
-          )
-      );
+            fragments_.push_back(
+                    fragment_ptr(ptr.release(), deallocator<AF>(af),
+                            allocator_));
 
-      tail_size_ += start_fragment_len;
+            tail_size_ += start_fragment_len;
+        }
+
+        total_size_ = put_size();
+
+        assert(!fragments_.empty());
+
+        // reset 'get' iterators to the fragments begin
+        put_active_ = fragments_.begin();
+
+        // set streambuf pointers
+        std::streambuf::setg((*get_active())->begin(), (*get_active())->begin(),
+                (*get_active())->begin());
+#if defined (YDEBUG)
+        std::cerr << "setg: "
+        << (void*) this->eback () << ", "
+        << (void*) this->gptr () << ", "
+        << (void*) this->egptr ()
+        << "\n";
+#endif
+
+        std::streambuf::setp((*put_active())->begin(), (*put_active())->end());
+        tail_size_ -= (this->epptr() - this->pbase());
     }
 
-    total_size_ = put_size ();
-
-    assert (! fragments_.empty ());
-
-    // reset 'get' iterators to the fragments begin
-    put_active_ = fragments_.begin ();
-
-    // set streambuf pointers
-    std::streambuf::setg ((*get_active ())->begin (), (*get_active ())->begin (), (*get_active ())->begin ());
-#if defined (YDEBUG)
-std::cerr << "setg: " 
-  << (void*) this->eback () << ", "
-  << (void*) this->gptr () << ", "
-  << (void*) this->egptr ()
-  << "\n";
-#endif
-
-    std::streambuf::setp ((*put_active ())->begin (), (*put_active ())->end ());
-    tail_size_ -= (this->epptr () - this->pbase ());
-  }
-
-  template <typename T>
-  typename iteratorT<T>::type
-  beginT () const
-  {
-    assert (! fragments_.empty ());
+    template<typename T>
+    typename iteratorT<T>::type beginT() const {
+        assert(!fragments_.empty());
 #if 0
-    // special case
-    if (get_active () != put_active () && inter_size_ == 0 
-        && this->pptr () == (*put_active ())->begin ())
-      return typename 
+        // special case
+        if (get_active () != put_active () && inter_size_ == 0
+                && this->pptr () == (*put_active ())->begin ())
+        return typename
         iteratorT<T>::type (fragments_, this->gptr (), this->egptr ());
-    else
+        else
 #endif
-      return typename 
-        iteratorT<T>::type (fragments_, this->gptr ());
-  }
+        return typename iteratorT<T>::type(fragments_, this->gptr());
+    }
 
-
-  template <typename T>
-  typename iteratorT<T>::type
-  endT () const
-  {
+    template<typename T>
+    typename iteratorT<T>::type endT() const {
 #if 0
-    // special case
-    if (get_active () != put_active () && inter_size_ == 0
-        && this->pptr () == (*put_active ())->begin ())
-      return typename 
+        // special case
+        if (get_active () != put_active () && inter_size_ == 0
+                && this->pptr () == (*put_active ())->begin ())
+        return typename
         iteratorT<T>::type (fragments_, this->gptr (), this->egptr (), true);
-    else
+        else
 #endif
-      return typename 
-        iteratorT<T>::type (fragments_, this->pptr (), true);
-  }
+        return typename iteratorT<T>::type(fragments_, this->pptr(), true);
+    }
 
-  iterator begin () const { return beginT<char_type> (); }
-  iterator end () const { return endT<char_type> (); }
-
+    iterator begin() const {
+        return beginT<char_type>();
+    }
+    iterator end() const {
+        return endT<char_type>();
+    }
 
 #if 0
-  template <typename T>
-  typename segmentT<T>::type 
-  detachT (typename iteratorT<T>::type const& split_point)
-  {
-    // TODO: implementation
-    return typename segmentT<T>::type ();
-  }
+    template <typename T>
+    typename segmentT<T>::type detachT (typename iteratorT<T>::type const& split_point) {
+        // TODO: implementation
+        return typename segmentT<T>::type ();
+    }
 #endif
 
-  segment_type 
-  detach (iterator const& split_point)
-  {
+    segment_type detach(iterator const& split_point) {
 #if defined(YDEBUG)
-std::cerr << "DETACH ()\n";
-  PRINT_DEBUG (std::cerr);
+        std::cerr << "DETACH ()\n";
+        PRINT_DEBUG (std::cerr);
 #endif
 
-    fragment_list_const_iterator iter = get_active ();
-    
-    while (iter != split_point.cur_seg_)
-    {
-      assert (iter != fragments_.end ());
-      ++iter;
-    }
+        fragment_list_const_iterator iter = get_active();
 
-    segment_type tmp (
-      boost::make_iterator_range (get_active (), ++iter),
-      this->gptr (), split_point.cur_val_
-    );
+        while (iter != split_point.cur_seg_) {
+            assert(iter != fragments_.end());
+            ++iter;
+        }
 
-    // consume first fragment
-    if (get_active () == put_active ())
-    {
-      assert (split_point.cur_seg_ == get_active ());
-      assert (split_point.cur_val_ >= this->gptr ());
-      assert (split_point.cur_val_ <= this->pptr ());
+        segment_type tmp(boost::make_iterator_range(get_active(), ++iter),
+                this->gptr(), split_point.cur_val_);
 
-      if (split_point.cur_val_ > this->pbase ())
-        compact_put_area ();
+        // consume first fragment
+        if (get_active() == put_active()) {
+            assert(split_point.cur_seg_ == get_active());
+            assert(split_point.cur_val_ >= this->gptr());
+            assert(split_point.cur_val_ <= this->pptr());
 
-      inter_size_ = 0;
-      std::streambuf::setg (const_cast<char_type*> (split_point.cur_val_),
-            const_cast<char_type*> (split_point.cur_val_), 
-            this->pbase ());
+            if (split_point.cur_val_ > this->pbase()) {
+                compact_put_area();
+            }
 
-      return tmp;
-    }
+            inter_size_ = 0;
+            std::streambuf::setg(const_cast<char_type*>(split_point.cur_val_),
+                    const_cast<char_type*>(split_point.cur_val_),
+                    this->pbase());
 
-    if (split_point.cur_seg_ == get_active () 
-        && (*get_active ())->contains(split_point.cur_val_))
-    {
+            return tmp;
+        }
+
+        if (split_point.cur_seg_ == get_active()
+                && (*get_active())->contains(split_point.cur_val_)) {
 #if defined (YDEBUG)
-std::cerr << "DETACH_1: intersize: " <<
-      inter_size_ << " -= " <<
-      ((*get_active ())->end () - this->egptr ()) << "\n";
+            std::cerr << "DETACH_1: intersize: " <<
+            inter_size_ << " -= " <<
+            ((*get_active ())->end () - this->egptr ()) << "\n";
 #endif
 
-      assert (split_point.cur_val_ >= this->gptr ());
+            assert(split_point.cur_val_ >= this->gptr());
 
-      inter_size_ -= ((*get_active ())->end () - this->egptr ());
+            inter_size_ -= ((*get_active())->end() - this->egptr());
 
-      // extend get ptrs to the end of fragment
-      std::streambuf::setg (const_cast<char_type*> (split_point.cur_val_), 
-            const_cast<char_type*> (split_point.cur_val_),
-            (*get_active ())->end ());
+            // extend get ptrs to the end of fragment
+            std::streambuf::setg(const_cast<char_type*>(split_point.cur_val_),
+                    const_cast<char_type*>(split_point.cur_val_),
+                    (*get_active())->end());
 #if defined(YDEBUG)
-size ();
-PRINT_DEBUG (std::cerr);
+            size ();
+            PRINT_DEBUG (std::cerr);
 #endif
-      return tmp;
-    }
+            return tmp;
+        }
 
-    // drop get_active node
-    inter_size_ -= (*get_active ())->end () - this->egptr ();
-    fragments_.pop_front ();
+        // drop get_active node
+        inter_size_ -= (*get_active())->end() - this->egptr();
+        fragments_.pop_front();
 
-    // remove everithing till cur_seg
-    while (get_active () != split_point.cur_seg_)
-    {
-      assert (get_active () != put_active ());
-      inter_size_ -= detail::buffer_size (**get_active ());
-      fragments_.pop_front ();
-    }
+        // remove everithing till cur_seg
+        while (get_active() != split_point.cur_seg_) {
+            assert(get_active() != put_active());
+            inter_size_ -= detail::buffer_size(**get_active());
+            fragments_.pop_front();
+        }
 
-    if (get_active () == put_active ())
-    {
-      assert (split_point.cur_val_ <= this->pptr ());
+        if (get_active() == put_active()) {
+            assert(split_point.cur_val_ <= this->pptr());
 
-      if (split_point.cur_val_ > this->pbase ())
-        compact_put_area ();
+            if (split_point.cur_val_ > this->pbase()) {
+                compact_put_area();
+            }
 
-      inter_size_ = 0;
-      std::streambuf::setg (const_cast<char_type*> (split_point.cur_val_),
-            const_cast<char_type*> (split_point.cur_val_), this->pbase ());
+            inter_size_ = 0;
+            std::streambuf::setg(const_cast<char_type*>(split_point.cur_val_),
+                    const_cast<char_type*>(split_point.cur_val_),
+                    this->pbase());
 
-    }
-    else
-    {
+        } else {
 #if defined (YDEBUG)
-std::cerr << "DETACH_1: intersize: " <<
-      inter_size_ << " -= " <<
-      detail::buffer_size (**get_active ()) << "\n";
+            std::cerr << "DETACH_1: intersize: " <<
+            inter_size_ << " -= " <<
+            detail::buffer_size (**get_active ()) << "\n";
 #endif
-      assert (split_point.cur_val_ >= (*get_active ())->begin ());
-      assert (split_point.cur_val_ <= (*get_active ())->end ());
-      assert (inter_size_ >= detail::buffer_size (**get_active ()));
+            assert(split_point.cur_val_ >= (*get_active())->begin());
+            assert(split_point.cur_val_ <= (*get_active())->end());
+            assert(inter_size_ >= detail::buffer_size(**get_active()));
 
-      inter_size_ -= detail::buffer_size (**get_active ());
+            inter_size_ -= detail::buffer_size(**get_active());
 
-      // extend get ptrs to the end of fragment
-      std::streambuf::setg (const_cast<char_type*> (split_point.cur_val_), 
-            const_cast<char_type*> (split_point.cur_val_),
-            (*get_active ())->end ());
-    }
+            // extend get ptrs to the end of fragment
+            std::streambuf::setg(const_cast<char_type*>(split_point.cur_val_),
+                    const_cast<char_type*>(split_point.cur_val_),
+                    (*get_active())->end());
+        }
 #if defined(YDEBUG)
-    this->size ();
-    std::cerr << "DETACH - OK, tailsize=" << tail_size () 
-      << ", putsize=" << put_size () << "\n";
-    PRINT_DEBUG (std::cerr);
+        this->size ();
+        std::cerr << "DETACH - OK, tailsize=" << tail_size ()
+        << ", putsize=" << put_size () << "\n";
+        PRINT_DEBUG (std::cerr);
 #endif
 
-    return tmp;
-  }
-
-  // get the size of the input area
-  std::size_t
-  size () const
-  {
-#if defined(YDEBUG)
-std::cerr << "SIZE () = " 
-    << inter_size () << " + " << 
-      (this->egptr () - this->gptr ()) << " + " <<
-      (this->pptr () - this->pbase ()) << "\n";
-#endif
-    return inter_size ()
-      + (this->egptr () - this->gptr ()) 
-      + (this->pptr () - this->pbase ());
-  }
-
-  // Get a list of buffers that represents the input sequence.
-  const_buffers_type 
-  data() const
-  {
-#if defined(YDEBUG)
-std::cerr << "DATA ()\n";
-#endif
-    const_buffers_type cb (allocator_);
-    fragment_list_const_iterator iter = get_active ();
-
-    std::size_t sz;
-    
-    if (iter == put_active ())
-      sz = this->pptr () - this->gptr ();
-    else
-      sz = (*iter)->end () - this->gptr ();
-
-    // add first fragment, but avoid to add empty buffers
-    if (sz > 0)
-      cb.push_back (
-          asio::const_buffer (this->gptr (), sz)
-      );
-    
-    if (iter != put_active ())
-    {
-      // add everithing until active put segment
-      while (++iter != put_active ())
-      {
-        sz = detail::buffer_size (**iter);
-
-        if (sz > 0)
-          cb.push_back (
-              asio::const_buffer (
-                detail::buffer_cast<void const*> (**iter),
-                sz
-              )
-          );
-      }
-
-      // add put_active segment
-      char_type const* ptr = detail::buffer_cast<char_type*> (**iter);
-      std::size_t sz = this->pptr () - ptr;
-
-      if (sz > 0)
-        cb.push_back (asio::const_buffer (ptr, sz));
+        return tmp;
     }
 
-    return cb;
-  }
-
-  // Get a list of buffers that represents the output sequence, with the given size.
-  mutable_buffers_type 
-  prepare (std::size_t size)
-  {
+    // get the size of the input area
+    std::size_t size() const {
 #if defined(YDEBUG)
-std::cerr << "PREPARE (" << size << ")\n";
-  PRINT_DEBUG (std::cerr);
+        std::cerr << "SIZE () = "
+        << inter_size () << " + " <<
+        (this->egptr () - this->gptr ()) << " + " <<
+        (this->pptr () - this->pbase ()) << "\n";
 #endif
-    reserve (size);
-
-    mutable_buffers_type mb (allocator_);
-
-    fragment_list_const_iterator iter = put_active ();
-
-    std::size_t sz;
-    if ((sz = (*iter)->end () - this->pptr ()) > 0)
-    {
-      mb.push_back (asio::mutable_buffer (this->pptr (), sz));
+        return inter_size() + (this->egptr() - this->gptr())
+                + (this->pptr() - this->pbase());
     }
 
-    while (++iter != fragments_.end ())
-    {
-      if ((sz = detail::buffer_size (**iter)) > 0)
-        mb.push_back (asio::mutable_buffer (
-            (*iter)->begin (),
-            sz
-          )
-        );
+    // Get a list of buffers that represents the input sequence.
+    const_buffers_type data() const {
+#if defined(YDEBUG)
+        std::cerr << "DATA ()\n";
+#endif
+        const_buffers_type cb(allocator_);
+        fragment_list_const_iterator iter = get_active();
+
+        std::size_t sz;
+
+        if (iter == put_active()) {
+            sz = this->pptr() - this->gptr();
+        } else {
+            sz = (*iter)->end() - this->gptr();
+        }
+
+        // add first fragment, but avoid to add empty buffers
+        if (sz > 0) {
+            cb.push_back(asio::const_buffer(this->gptr(), sz));
+        }
+
+        if (iter != put_active()) {
+            // add everithing until active put segment
+            while (++iter != put_active()) {
+                sz = detail::buffer_size(**iter);
+
+                if (sz > 0)
+                    cb.push_back(
+                            asio::const_buffer(
+                                    detail::buffer_cast<void const*>(**iter),
+                                    sz));
+            }
+
+            // add put_active segment
+            char_type const* ptr = detail::buffer_cast<char_type*>(**iter);
+            std::size_t sz = this->pptr() - ptr;
+
+            if (sz > 0) {
+                cb.push_back(asio::const_buffer(ptr, sz));
+            }
+        }
+
+        return cb;
     }
 
-    return mb;
-  }
+    // Get a list of buffers that represents the output sequence, with the given size.
+    mutable_buffers_type prepare(std::size_t size) {
+#if defined(YDEBUG)
+        std::cerr << "PREPARE (" << size << ")\n";
+        PRINT_DEBUG (std::cerr);
+#endif
+        reserve(size);
+
+        mutable_buffers_type mb(allocator_);
+
+        fragment_list_const_iterator iter = put_active();
+
+        std::size_t sz;
+        if ((sz = (*iter)->end() - this->pptr()) > 0) {
+            mb.push_back(asio::mutable_buffer(this->pptr(), sz));
+        }
+
+        while (++iter != fragments_.end()) {
+            if ((sz = detail::buffer_size(**iter)) > 0) {
+                mb.push_back(asio::mutable_buffer((*iter)->begin(), sz));
+            }
+        }
+
+        return mb;
+    }
 
 // Remove characters from the input sequence.
-  void consume (std::size_t size)
-  {
+    void consume(std::size_t size) {
 #if defined(YDEBUG)
-std::cerr << "CONSUME (" << size << "), tailsize=" << tail_size () 
-  << ", putsize=" << put_size () << "\n";
-  PRINT_DEBUG (std::cerr);
+        std::cerr << "CONSUME (" << size << "), tailsize=" << tail_size ()
+        << ", putsize=" << put_size () << "\n";
+        PRINT_DEBUG (std::cerr);
 #endif
 
-    // TO THINK: should it be accepted?
-    if (! size) return;
+        // TO THINK: should it be accepted?
+        if (!size) {
+            return;
+        }
 
-    assert (size > 0 && size <= this->size ());
+        assert(size > 0 && size <= this->size());
 
-    compact_put_area ();
+        compact_put_area();
 
-    if (get_active () == put_active ())
-      extend_get_area ();
-    else
-      // FIXME: not optimal
-      std::streambuf::setg (this->eback (), this->gptr (), (*get_active ())->end ());
+        if (get_active() == put_active()) {
+            extend_get_area();
+        } else {
+            // FIXME: not optimal
+            std::streambuf::setg(this->eback(), this->gptr(),
+                    (*get_active())->end());
+        }
 
-    if (size <= this->egptr () - this->gptr ())
-    {
-      std::streambuf::setg (this->gptr () + size, this->gptr () + size,
-          this->egptr ());
-      this->size ();
-      return;
-    }
-      
-    inter_size_ -= (size - (this->egptr () - this->gptr ()));
+        if (size <= this->egptr() - this->gptr()) {
+            std::streambuf::setg(this->gptr() + size, this->gptr() + size,
+                    this->egptr());
+            this->size();
+            return;
+        }
 
-    std::size_t n = std::min <std::size_t> (size, 
-        this->egptr () - this->gptr ());
+        inter_size_ -= (size - (this->egptr() - this->gptr()));
 
-    size -= n;
+        std::size_t n = std::min<std::size_t>(size,
+                this->egptr() - this->gptr());
 
-    while (size > 0)
-    {
-      fragments_.pop_front ();
+        size -= n;
 
-      if (size > detail::buffer_size (**get_active ()))
-      {
-        size -= detail::buffer_size (**get_active ());
-      }
-      else
-      {
-        std::streambuf::setg ((*get_active ())->begin () + size,
-            (*get_active ())->begin () + size,
-            (get_active () == put_active ()) ?
-            this->pbase () : (*get_active ())->end ());
-        size = 0;
-      }
-    }
+        while (size > 0) {
+            fragments_.pop_front();
+
+            if (size > detail::buffer_size(**get_active())) {
+                size -= detail::buffer_size(**get_active());
+            } else {
+                std::streambuf::setg((*get_active())->begin() + size,
+                        (*get_active())->begin() + size,
+                        (get_active() == put_active()) ?
+                                this->pbase() : (*get_active())->end());
+                size = 0;
+            }
+        }
 
 #if defined(YDEBUG)
-  this->size ();
-  std::cerr << "CONSUME - OK, tailsize=" << tail_size () 
-    << ", putsize=" << put_size () << "\n";
+        this->size ();
+        std::cerr << "CONSUME - OK, tailsize=" << tail_size ()
+        << ", putsize=" << put_size () << "\n";
 #endif
-  }
-
-  // advance put pointer to n bytes
-  void commit (std::size_t n)
-  {
-#if defined(YDEBUG)
-  std::cerr << "COMMIT (" << n << "), put_size=" << put_size () 
-    << ", tail_size=" << tail_size ()
-    << "\n";
-  PRINT_DEBUG (std::cerr);
-#endif
-    assert (n <= put_size () && "not enough space in put area");
-
-    // the current [pbase-epptr] area is large enough
-    if (static_cast<std::size_t> (this->epptr () - this->pptr ()) >= n)
-    {
-      this->pbump (static_cast<int> (n));
-#if defined(YDEBUG)
-  std::cerr << "COMMIT () - OK, put_size=" << put_size () 
-    << ", tail_size=" << tail_size ()
-    << "\n";
-#endif
-      promote_put_if_exist ();
-      return;
     }
 
+    // advance put pointer to n bytes
+    void commit(std::size_t n) {
 #if defined(YDEBUG)
-std::cerr << "COMMIT_1, putsize=" << put_size () << "\n";
+        std::cerr << "COMMIT (" << n << "), put_size=" << put_size ()
+        << ", tail_size=" << tail_size ()
+        << "\n";
+        PRINT_DEBUG (std::cerr);
 #endif
-    n -= (this->epptr () - this->pptr ());
+        assert(n <= put_size() && "not enough space in put area");
 
-    // should always be zero
-    // tail_size_ -= ((*put_active ())->end () - this->epptr ());
-    assert ((*put_active ())->end () - this->epptr () == 0);
+        // the current [pbase-epptr] area is large enough
+        if (static_cast<std::size_t>(this->epptr() - this->pptr()) >= n) {
+            this->pbump(static_cast<int>(n));
+#if defined(YDEBUG)
+            std::cerr << "COMMIT () - OK, put_size=" << put_size ()
+            << ", tail_size=" << tail_size ()
+            << "\n";
+#endif
+            promote_put_if_exist();
+            return;
+        }
+
+#if defined(YDEBUG)
+        std::cerr << "COMMIT_1, putsize=" << put_size () << "\n";
+#endif
+        n -= (this->epptr() - this->pptr());
+
+        // should always be zero
+        // tail_size_ -= ((*put_active ())->end () - this->epptr ());
+        assert((*put_active())->end() - this->epptr() == 0);
 
 #if defined (YDEBUG)
-std::cerr << "COMMIT_2: intersize: " <<
-      inter_size_ << " += " << 
-    ((*put_active ())->end () - this->pbase ()) << "\n";
+        std::cerr << "COMMIT_2: intersize: " <<
+        inter_size_ << " += " <<
+        ((*put_active ())->end () - this->pbase ()) << "\n";
 #endif
-    inter_size_ += ((*put_active ())->end () - this->pbase ());
-    ++put_active_;
-    assert (put_active_ != fragments_.end());
+        inter_size_ += ((*put_active())->end() - this->pbase());
+        ++put_active_;
+        assert(put_active_ != fragments_.end());
 
-    std::size_t sz;
-    while ((sz = detail::buffer_size (**put_active ())) < n)
-    {
+        std::size_t sz;
+        while ((sz = detail::buffer_size(**put_active())) < n) {
 #if defined (YDEBUG)
-std::cerr << "CONSUME_3: intersize: " <<
-      inter_size_ << " += " <<  sz << "\n";
+            std::cerr << "CONSUME_3: intersize: " <<
+            inter_size_ << " += " << sz << "\n";
 #endif
-      n -= sz;
-      tail_size_ -= sz;
-      inter_size_ += sz;
-      ++put_active_;
-      assert (put_active_ != fragments_.end());
-    }
+            n -= sz;
+            tail_size_ -= sz;
+            inter_size_ += sz;
+            ++put_active_;
+            assert(put_active_ != fragments_.end());
+        }
 #if defined(YDEBUG)
-std::cerr << "COMMIT_4, putsize=" << put_size () << ", tail_size=" << tail_size_ << ", buffer_size=" << detail::buffer_size (**put_active ()) << "\n";
+        std::cerr << "COMMIT_4, putsize=" << put_size () << ", tail_size=" << tail_size_ << ", buffer_size=" << detail::buffer_size (**put_active ()) << "\n";
 #endif
 
-    inter_size_ += n;
-    tail_size_ -= detail::buffer_size (**put_active ());
-    std::streambuf::setp ((*put_active ())->begin () + n, (*put_active ())->end ());
-    promote_put_if_exist ();
+        inter_size_ += n;
+        tail_size_ -= detail::buffer_size(**put_active());
+        std::streambuf::setp((*put_active())->begin() + n,
+                (*put_active())->end());
+        promote_put_if_exist();
 #if defined(YDEBUG)
-    PRINT_DEBUG (std::cerr);
-std::cerr << "COMMIT () - OK, putsize=" << put_size () << "\n";
+        PRINT_DEBUG (std::cerr);
+        std::cerr << "COMMIT () - OK, putsize=" << put_size () << "\n";
 #endif
-  }
+    }
 
 protected:
-  void
-  promote_put_if_exist ()
-  {
-    if (this->epptr() > this->pptr() || (&(*put_active_) == &fragments_.back()))
-      return;
-    promote_put ();
-  }
-  // Extend put area to n bytes (total)
-  void 
-  reserve (std::size_t n)
-  {
-#if defined(YDEBUG)
-std::cerr << "RESERVE (" << n << "), put_size=" << put_size () << "\n";
-#endif
-
-    if (total_size_ + n > max_size_)
-    {
-      std::length_error ex("y::zerocopy::streambuf too long");
-      boost::throw_exception(ex);
+    void promote_put_if_exist() {
+        if (this->epptr() > this->pptr()
+                || (&(*put_active_) == &fragments_.back())) {
+            return;
+        }
+        promote_put();
     }
-
-    if (put_size () >= n) 
-      return;
-    
+    // Extend put area to n bytes (total)
+    void reserve(std::size_t n) {
 #if defined(YDEBUG)
-std::cerr << "RESERVE (" << n << ") - 0\n";
-#endif
-    // add fragments at end
-    typedef typename allocator_type::template rebind<fragment_type>::other AF;
-    AF af (allocator_);
-
-#if defined(YDEBUG)
-std::cerr << "RESERVE (" << n << ") - 1\n";
-#endif
-    while (put_size () < n)
-    {
-      // calculate fragment size
-      std::size_t needed_size = n - put_size ();
-
-      std::size_t sz = 
-        std::min<std::size_t> (
-          std::max<std::size_t> (needed_size, min_fragmentation_),
-          max_fragmentation_
-        );
-
-#if defined(YDEBUG)
-std::cerr << "RESERVE (" << n << ") - adding fragment, needed " <<
-  needed_size << " bytes, will allocate " << sz << "\n";
+        std::cerr << "RESERVE (" << n << "), put_size=" << put_size () << "\n";
 #endif
 
-      // allocate memory for fragment
-      alloc_guard<fragment_type> ptr (af.allocate (1)); 
+        if (total_size_ + n > max_size_) {
+            std::length_error ex("y::zerocopy::streambuf too long");
+            boost::throw_exception(ex);
+        }
 
-      // construct fragment with calculated size
+        if (put_size() >= n) {
+            return;
+        }
+
+#if defined(YDEBUG)
+        std::cerr << "RESERVE (" << n << ") - 0\n";
+#endif
+        // add fragments at end
+        typedef typename allocator_type::template rebind<fragment_type>::other AF;
+        AF af(allocator_);
+
+#if defined(YDEBUG)
+        std::cerr << "RESERVE (" << n << ") - 1\n";
+#endif
+        while (put_size() < n) {
+            // calculate fragment size
+            std::size_t needed_size = n - put_size();
+
+            std::size_t sz = std::min<std::size_t>(
+                    std::max<std::size_t>(needed_size, min_fragmentation_),
+                    max_fragmentation_);
+
+#if defined(YDEBUG)
+            std::cerr << "RESERVE (" << n << ") - adding fragment, needed " <<
+            needed_size << " bytes, will allocate " << sz << "\n";
+#endif
+
+            // allocate memory for fragment
+            alloc_guard<fragment_type> ptr(af.allocate(1));
+
+            // construct fragment with calculated size
 #if 0
-      // this needs a copy constructor, which is slow and absent anyway
-      af.construct (ptr.get (), fragment_type (sz, fallocator_));
+            // this needs a copy constructor, which is slow and absent anyway
+            af.construct (ptr.get (), fragment_type (sz, fallocator_));
 #else
-      new (static_cast<void*> (ptr.get ())) fragment_type (sz, fallocator_);
+            new (static_cast<void*>(ptr.get())) fragment_type(sz, fallocator_);
 #endif
 
-      // add created fragment to list
-      fragments_.push_back (
-          fragment_ptr (
-              ptr.release ()
-            , deallocator<AF> (af)
-            , allocator_
-          )
-      );
+            // add created fragment to list
+            fragments_.push_back(
+                    fragment_ptr(ptr.release(), deallocator<AF>(af),
+                            allocator_));
 
-      // increment put_size
-      tail_size_ += sz;
+            // increment put_size
+            tail_size_ += sz;
 
+        }
+
+#if defined(YDEBUG)
+        std::cerr << "RESERVE (" << n << ") - OK\n";
+#endif
     }
 
+    // Fix put and (if needed) get end and base pointers
+    bool compact_put_area() {
 #if defined(YDEBUG)
-std::cerr << "RESERVE (" << n << ") - OK\n";
+        std::cerr << "COMPACT_PUT_AREA ()\n";
 #endif
-  }
-
-  // Fix put and (if needed) get end and base pointers
-  bool compact_put_area ()
-  {
-#if defined(YDEBUG)
-std::cerr << "COMPACT_PUT_AREA ()\n";
-#endif
-    if (this->pptr () == this->pbase ()) 
-      return false;
+        if (this->pptr() == this->pbase()) {
+            return false;
+        }
 
 #if defined(YDEBUG)
-std::cerr << "COMPACT_PUT_AREA (): intersize: " <<
-      inter_size_ << " += " << 
-    (this->pptr () - this->pbase ()) << "\n";
+        std::cerr << "COMPACT_PUT_AREA (): intersize: " <<
+        inter_size_ << " += " <<
+        (this->pptr () - this->pbase ()) << "\n";
 #endif
-    inter_size_ += (this->pptr () - this->pbase ());
-    
-    // move pbase pointer to pptr
-    std::streambuf::setp (this->pptr (), this->epptr ());
+        inter_size_ += (this->pptr() - this->pbase());
 
-    return true;
-  }
+        // move pbase pointer to pptr
+        std::streambuf::setp(this->pptr(), this->epptr());
 
-  bool extend_get_area ()
-  {
-#if defined(YDEBUG)
-std::cerr << "EXTEND_GET_AREA ()\n";
-#endif
-    assert (get_active () == put_active ());
-
-    if (this->egptr () == this->pbase ())
-      return false;
-
-#if defined(YDEBUG)
-std::cerr << "EXTEND_GET_AREA (): intersize: " <<
-      inter_size_ << " -= " << 
-    (this->pbase () - this->egptr ()) << "\n";
-#endif
-    inter_size_ -= (this->pbase () - this->egptr ());
-
-    // extend egptr pointer to pbase
-    std::streambuf::setg (this->eback (), this->gptr (), this->pbase ());
-
-    return true;
-  }
-
-  // streambuf 'put' interface
-  std::streamsize 
-  xsputn (char_type const* s, std::streamsize n)
-  {
-#if defined(YDEBUG)
-std::cerr << "XSPUTN (" << n << "): put ptrs: "
-  << (void*) this->pbase () << ", "
-  << (void*) this->pptr () << ", "
-  << (void*) this->epptr () << ", put_size=" << put_size ()
-  << "\n";
-#endif
-
-    std::streamsize size = n;
-
-    // allocate space if not already
-    reserve (size);
-
-    while (size > 0)
-    {
-      if (this->epptr () == this->pptr ())
-        // advance put area to next fragment
-        promote_put ();
-
-      std::streamsize frag = 
-        std::min<std::streamsize> (this->epptr () - this->pptr (), size);
-
-      std::memcpy (this->pptr (), s, frag);
-
-      s += frag;
-      size -= frag;
-
-      commit (frag);
+        return true;
     }
 
+    bool extend_get_area() {
 #if defined(YDEBUG)
-std::cerr << "XSPUTN () - OK, put ptrs: "
-  << (void*) this->pbase () << ", "
-  << (void*) this->pptr () << ", "
-  << (void*) this->epptr ()
-  << "\n";
-  PRINT_DEBUG (std::cerr);
+        std::cerr << "EXTEND_GET_AREA ()\n";
+#endif
+        assert(get_active() == put_active());
+
+        if (this->egptr() == this->pbase()) {
+            return false;
+        }
+
+#if defined(YDEBUG)
+        std::cerr << "EXTEND_GET_AREA (): intersize: " <<
+        inter_size_ << " -= " <<
+        (this->pbase () - this->egptr ()) << "\n";
+#endif
+        inter_size_ -= (this->pbase() - this->egptr());
+
+        // extend egptr pointer to pbase
+        std::streambuf::setg(this->eback(), this->gptr(), this->pbase());
+
+        return true;
+    }
+
+    // streambuf 'put' interface
+    std::streamsize xsputn(char_type const* s, std::streamsize n) {
+#if defined(YDEBUG)
+        std::cerr << "XSPUTN (" << n << "): put ptrs: "
+        << (void*) this->pbase () << ", "
+        << (void*) this->pptr () << ", "
+        << (void*) this->epptr () << ", put_size=" << put_size ()
+        << "\n";
 #endif
 
-    return n;
-  }
+        std::streamsize size = n;
 
-  // advance put active fragment
-    void promote_put ()
-    {
+        // allocate space if not already
+        reserve(size);
+
+        while (size > 0) {
+            if (this->epptr() == this->pptr()) {
+                // advance put area to next fragment
+                promote_put();
+            }
+
+            std::streamsize frag = std::min<std::streamsize>(
+                    this->epptr() - this->pptr(), size);
+
+            std::memcpy(this->pptr(), s, frag);
+
+            s += frag;
+            size -= frag;
+
+            commit(frag);
+        }
+
 #if defined(YDEBUG)
-  std::cerr << "PROMOTE_PUT ()\n";
+        std::cerr << "XSPUTN () - OK, put ptrs: "
+        << (void*) this->pbase () << ", "
+        << (void*) this->pptr () << ", "
+        << (void*) this->epptr ()
+        << "\n";
+        PRINT_DEBUG (std::cerr);
 #endif
-      assert (this->epptr () == (*put_active ())->end ());
-      assert (this->epptr () == this->pptr ());
 
-      // make sure it will be at least one free fragment
-      // after put_active
-      reserve (1);
+        return n;
+    }
 
-      // should always be zero
-      // tail_size_ -= ((*put_active ())->end () - this->epptr ());
-      assert ((*put_active ())->end () - this->epptr () == 0);
+    // advance put active fragment
+    void promote_put() {
+#if defined(YDEBUG)
+        std::cerr << "PROMOTE_PUT ()\n";
+#endif
+        assert(this->epptr() == (*put_active())->end());
+        assert(this->epptr() == this->pptr());
+
+        // make sure it will be at least one free fragment
+        // after put_active
+        reserve(1);
+
+        // should always be zero
+        // tail_size_ -= ((*put_active ())->end () - this->epptr ());
+        assert((*put_active())->end() - this->epptr() == 0);
 
 #if defined (YDEBUG)
-std::cerr << "PROMOTE_PUT: intersize: " <<
-      inter_size_ << " += " << 
-    ((*put_active ())->end () - this->pbase ()) << "\n";
+        std::cerr << "PROMOTE_PUT: intersize: " <<
+        inter_size_ << " += " <<
+        ((*put_active ())->end () - this->pbase ()) << "\n";
 #endif
-      inter_size_ += ((*put_active ())->end () - this->pbase ());
-      ++put_active_;
+        inter_size_ += ((*put_active())->end() - this->pbase());
+        ++put_active_;
 
-      std::streambuf::setp ((*put_active ())->begin (), (*put_active ())->end ());
-      tail_size_ -= (this->epptr () - this->pbase ());
+        std::streambuf::setp((*put_active())->begin(), (*put_active())->end());
+        tail_size_ -= (this->epptr() - this->pbase());
 #if defined(YDEBUG)
-  std::cerr << "PROMOTE_PUT () - OK\n";
-  PRINT_DEBUG (std::cerr);
+        std::cerr << "PROMOTE_PUT () - OK\n";
+        PRINT_DEBUG (std::cerr);
 #endif
     }
 
 #if 0
-  // streambuf interface
-  std::streamsize 
-  showmanyc ()
-  {
+    // streambuf interface
+    std::streamsize
+    showmanyc ()
+    {
 #if defined(YDEBUG)
-std::cerr << "SHOWMANYC\n";
+        std::cerr << "SHOWMANYC\n";
 #endif
-    return 0;
-  }
+        return 0;
+    }
 #endif
 
 #if 1
 
-  std::streamsize
-  xsgetn (char_type* s, std::streamsize n)
-  {
+    std::streamsize xsgetn(char_type* s, std::streamsize n) {
 #if defined(YDEBUG)
-std::cerr << "XSGETN (" << n << ")\n";
+        std::cerr << "XSGETN (" << n << ")\n";
 #endif
 
-    std::streamsize ret = 0;
-    while (n > 0)
-    {
-      std::streamsize sz = std::min (n, this->egptr () - this->gptr ());
-      std::memcpy (s, this->gptr (), sz);
-      s += sz;
-      ret += sz;
-      n -= sz;
-      std::streambuf::setg (this->eback (), 
-          this->gptr ()+sz, this->egptr ());
+        std::streamsize ret = 0;
+        while (n > 0) {
+            std::streamsize sz = std::min(n, this->egptr() - this->gptr());
+            std::memcpy(s, this->gptr(), sz);
+            s += sz;
+            ret += sz;
+            n -= sz;
+            std::streambuf::setg(this->eback(), this->gptr() + sz,
+                    this->egptr());
 
-      if (n > 0 && underflow () == streambuf_type::traits_type::eof ())
-        break;
+            if (n > 0 && underflow() == streambuf_type::traits_type::eof()) {
+                break;
+            }
+        }
+
+#if defined(YDEBUG)
+        std::cerr << "XSGETN = " << ret << "\n";
+#endif
+        return ret;
     }
 
+    typename streambuf_type::traits_type::int_type underflow() {
 #if defined(YDEBUG)
-std::cerr << "XSGETN = " << ret << "\n";
-#endif
-    return ret;
-  }
-
-  typename streambuf_type::traits_type::int_type 
-  underflow ()
-  {
-#if defined(YDEBUG)
-std::cerr << "UNDERFLOW (): get ptrs:  "
-  << (void*) this->eback () << ", "
-  << (void*) this->gptr () << ", "
-  << (void*) this->egptr ()
-  << "\n";
+        std::cerr << "UNDERFLOW (): get ptrs:  "
+        << (void*) this->eback () << ", "
+        << (void*) this->gptr () << ", "
+        << (void*) this->egptr ()
+        << "\n";
 #endif
 
-    if (get_active () == put_active ())
-    {
+        if (get_active() == put_active()) {
 #if defined(YDEBUG)
-std::cerr << "UNDERFLOW_1\n";
+            std::cerr << "UNDERFLOW_1\n";
 #endif
-      if (this->gptr () == this->pptr ())
-        return streambuf_type::traits_type::eof ();
+            if (this->gptr() == this->pptr()) {
+                return streambuf_type::traits_type::eof();
+            }
 
-      compact_put_area ();
-      extend_get_area ();
-    }
-    else if (this->egptr () != (*get_active ())->end ())
-    {
+            compact_put_area();
+            extend_get_area();
+        } else if (this->egptr() != (*get_active())->end()) {
 #if defined(YDEBUG)
-std::cerr << "UNDERFLOW_2\n";
+            std::cerr << "UNDERFLOW_2\n";
 
-std::cerr << "UNDERFLOW (): intersize: " <<
-      inter_size_ << " -= " << 
-    ((*get_active ())->end () - this->egptr ()) << "\n";
+            std::cerr << "UNDERFLOW (): intersize: " <<
+            inter_size_ << " -= " <<
+            ((*get_active ())->end () - this->egptr ()) << "\n";
 #endif
-      inter_size_ -= ((*get_active ())->end () - this->egptr ());
+            inter_size_ -= ((*get_active())->end() - this->egptr());
 
-      // extend egptr pointer to end of fragment
-      std::streambuf::setg (this->eback (), this->gptr (), (*get_active ())->end ());
+            // extend egptr pointer to end of fragment
+            std::streambuf::setg(this->eback(), this->gptr(),
+                    (*get_active())->end());
 
-    }
-    else
-    {
+        } else {
 #if defined(YDEBUG)
-std::cerr << "UNDERFLOW_3\n";
+            std::cerr << "UNDERFLOW_3\n";
 #endif
-      fragments_.pop_front ();
-      char_type* eptr;
+            fragments_.pop_front();
+            char_type* eptr;
 
-      if (get_active () == put_active ())
-      {
-        // FIXME: compact put area on demand only?
-        // if ((*get_active ())->begin () == this->pbase ())
-          compact_put_area ();
+            if (get_active() == put_active()) {
+                // FIXME: compact put area on demand only?
+                // if ((*get_active ())->begin () == this->pbase ())
+                compact_put_area();
 
-        eptr = this->pbase ();
-      }
-      else 
-        eptr = (*get_active ())->end ();
-
+                eptr = this->pbase();
+            } else {
+                eptr = (*get_active())->end();
+            }
 
 #if defined (YDEBUG)
-std::cerr << "UNDERFLOW_3 (): intersize: " <<
-      inter_size_ << " -= " << 
-    (eptr - (*get_active ())->begin ()) << "\n";
+            std::cerr << "UNDERFLOW_3 (): intersize: " <<
+            inter_size_ << " -= " <<
+            (eptr - (*get_active ())->begin ()) << "\n";
 #endif
-      inter_size_ -= (eptr - (*get_active ())->begin ());
-      std::streambuf::setg ((*get_active ())->begin (), (*get_active ())->begin (), eptr);
+            inter_size_ -= (eptr - (*get_active())->begin());
+            std::streambuf::setg((*get_active())->begin(),
+                    (*get_active())->begin(), eptr);
+        }
+
+#if defined(YDEBUG)
+        std::cerr << "UNDERFLOW () - OK: get ptrs:  "
+        << (void*) this->eback () << ", "
+        << (void*) this->gptr () << ", "
+        << (void*) this->egptr ()
+        << "\n";
+#endif
+
+        return (this->gptr() == this->egptr()) ?
+                streambuf_type::traits_type::eof() : *this->gptr();
     }
 
-#if defined(YDEBUG)
-std::cerr << "UNDERFLOW () - OK: get ptrs:  "
-  << (void*) this->eback () << ", "
-  << (void*) this->gptr () << ", "
-  << (void*) this->egptr ()
-  << "\n";
-#endif
-
-    return (this->gptr () == this->egptr ()) ?
-      streambuf_type::traits_type::eof () : *this->gptr ();
-  }
-
 #if 0
-  typename streambuf_type::traits_type::int_type 
-  uflow ()
-  {
-    return 0;
-  }
+    typename streambuf_type::traits_type::int_type uflow () {
+        return 0;
+    }
 #endif
 
-  typename streambuf_type::traits_type::int_type 
-  pbackfail (typename streambuf_type::traits_type::int_type /*c*/ =
-      streambuf_type::traits_type::eof ())
-  {
+    typename streambuf_type::traits_type::int_type pbackfail(
+            typename streambuf_type::traits_type::int_type /*c*/=
+                    streambuf_type::traits_type::eof()) {
 #if defined(YDEBUG)
-std::cerr << "PBACKFAIL\n";
+        std::cerr << "PBACKFAIL\n";
 #endif
-    return streambuf_type::traits_type::eof ();;
-  }
+        return streambuf_type::traits_type::eof();
+    }
 #endif
 
 private:
 #if 0
-  std::size_t front_size () const
-  {
-    assert (! fragments_.empty ());
+    std::size_t front_size () const
+    {
+        assert (! fragments_.empty ());
 
-    std::size_t size; //  = detail::buffer_size (*fragments_.front ()) - front_free_;
-    if (fragments_.size () == 1)
-      ; //size -= tail_free_;
+        std::size_t size; //  = detail::buffer_size (*fragments_.front ()) - front_free_;
+        if (fragments_.size () == 1)
+        ;//size -= tail_free_;
 
-    return size;
-  }
+        return size;
+    }
 #endif
 };
 
 typedef basic_streambuf<> streambuf;
 
-}} // namespace yplatform::zerocopy
+}
+} // namespace yplatform::zerocopy
 #endif // _YPLATFORM_ZEROCOPY_STREAMBUF_H_
