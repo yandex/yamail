@@ -10,7 +10,6 @@
 #include <boost/iterator/iterator_facade.hpp>
 
 #include <cassert>
-// #include <deque>
 #include <list>
 
 YAMAIL_FQNS_DATA_ZC_BEGIN

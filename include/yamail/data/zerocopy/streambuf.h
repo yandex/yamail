@@ -143,10 +143,6 @@ class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
     // returns the occupied space by of fragment pointed by iterator 'iter'
     std::size_t fragment_size(fragment_list_const_iterator const& iter) const {
         std::size_t size = detail::buffer_size(**iter);
-#if 0
-        if (iter == fragments_.begin ()) size -= front_free_;
-        if (iter == put_active ()) size -= tail_free_;
-#endif
         return size;
     }
 
@@ -268,15 +264,6 @@ public:
 
     typedef typename iteratorT<char_type>::type iterator;
 
-#if 0
-    template <typename T>
-    struct segmentT {
-        typedef zerocopy::segment<T> type;
-    };
-
-    typedef segmentT<char>::type segment;
-#endif
-
     typedef basic_segment<allocator_type> segment_type;
 
     fragment_allocator_type const& get_fallocator() const {
@@ -296,10 +283,8 @@ public:
             fragment_allocator_type const& fallocator =
                     fragment_allocator_type(), allocator_type const& allocator =
                     allocator_type()) :
-            size_(0), inter_size_(0), tail_size_(0), total_size_(0)
-//    , front_free_ (0)
-//    , tail_free_ (0)
-                    , min_fragmentation_(
+            size_(0), inter_size_(0), tail_size_(0), total_size_(0),
+            min_fragmentation_(
                     min_fragmentation ? min_fragmentation : 512), max_fragmentation_(
                     std::max(min_fragmentation_,
                             max_fragmentation ?
@@ -328,13 +313,8 @@ public:
         while (start_fragments--) {
             alloc_guard<fragment_type> ptr(af.allocate(1));
 
-#if 0
-            // this needs a copy constructor, which is slow and absent anyway
-            af.construct (ptr.get (), fragment_type (start_fragment_len, fallocator_));
-#else
             new (static_cast<void*>(ptr.get())) fragment_type(
                     start_fragment_len, fallocator_);
-#endif
             fragments_.push_back(
                     fragment_ptr(ptr.release(), deallocator<AF>(af),
                             allocator_));
@@ -367,27 +347,11 @@ public:
     template<typename T>
     typename iteratorT<T>::type beginT() const {
         assert(!fragments_.empty());
-#if 0
-        // special case
-        if (get_active () != put_active () && inter_size_ == 0
-                && this->pptr () == (*put_active ())->begin ())
-        return typename
-        iteratorT<T>::type (fragments_, this->gptr (), this->egptr ());
-        else
-#endif
         return typename iteratorT<T>::type(fragments_, this->gptr());
     }
 
     template<typename T>
     typename iteratorT<T>::type endT() const {
-#if 0
-        // special case
-        if (get_active () != put_active () && inter_size_ == 0
-                && this->pptr () == (*put_active ())->begin ())
-        return typename
-        iteratorT<T>::type (fragments_, this->gptr (), this->egptr (), true);
-        else
-#endif
         return typename iteratorT<T>::type(fragments_, this->pptr(), true);
     }
 
@@ -397,14 +361,6 @@ public:
     iterator end() const {
         return endT<char_type>();
     }
-
-#if 0
-    template <typename T>
-    typename segmentT<T>::type detachT (typename iteratorT<T>::type const& split_point) {
-        // TODO: implementation
-        return typename segmentT<T>::type ();
-    }
-#endif
 
     segment_type detach(iterator const& split_point) {
 #if defined(YDEBUG)
@@ -773,12 +729,7 @@ protected:
             alloc_guard<fragment_type> ptr(af.allocate(1));
 
             // construct fragment with calculated size
-#if 0
-            // this needs a copy constructor, which is slow and absent anyway
-            af.construct (ptr.get (), fragment_type (sz, fallocator_));
-#else
             new (static_cast<void*>(ptr.get())) fragment_type(sz, fallocator_);
-#endif
 
             // add created fragment to list
             fragments_.push_back(
@@ -916,20 +867,6 @@ protected:
 #endif
     }
 
-#if 0
-    // streambuf interface
-    std::streamsize
-    showmanyc ()
-    {
-#if defined(YDEBUG)
-        std::cerr << "SHOWMANYC\n";
-#endif
-        return 0;
-    }
-#endif
-
-#if 1
-
     std::streamsize xsgetn(char_type* s, std::streamsize n) {
 #if defined(YDEBUG)
         std::cerr << "XSGETN (" << n << ")\n";
@@ -1028,12 +965,6 @@ protected:
                 streambuf_type::traits_type::eof() : *this->gptr();
     }
 
-#if 0
-    typename streambuf_type::traits_type::int_type uflow () {
-        return 0;
-    }
-#endif
-
     typename streambuf_type::traits_type::int_type pbackfail(
             typename streambuf_type::traits_type::int_type /*c*/=
                     streambuf_type::traits_type::eof()) {
@@ -1042,25 +973,10 @@ protected:
 #endif
         return streambuf_type::traits_type::eof();
     }
-#endif
-
-private:
-#if 0
-    std::size_t front_size () const
-    {
-        assert (! fragments_.empty ());
-
-        std::size_t size; //  = detail::buffer_size (*fragments_.front ()) - front_free_;
-        if (fragments_.size () == 1)
-        ;//size -= tail_free_;
-
-        return size;
-    }
-#endif
 };
 
 typedef basic_streambuf<> streambuf;
 
-}
-} // namespace yplatform::zerocopy
+} // namespace zerocopy
+} // namespace yplatform
 #endif // _YPLATFORM_ZEROCOPY_STREAMBUF_H_
