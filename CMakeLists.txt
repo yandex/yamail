@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 cmake_minimum_required (VERSION 2.6)
 
 project(yamail)
@@ -62,3 +63,12 @@ endif(CMAKE_BUILD_TEST)
 
 install(DIRECTORY ${INCLUDE_DIR}/yamail DESTINATION include)
 install(TARGETS ${TARGET_LIBRARY} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+=======
+cmake_minimum_required(VERSION 2.8)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules/")
+project(yamail)
+install(DIRECTORY include DESTINATION include)
+enable_testing()
+# add_subdirectory(src)
+add_subdirectory(tests)
+>>>>>>> config-parser

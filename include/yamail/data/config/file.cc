@@ -1,5 +1,6 @@
 #define BOOST_SPIRIT_DEBUG_PRINT_SOME 80
 
+#include <yamail/data/config/parse_file.h>
 #include <yamail/data/config/parse_stream.h>
 #include <yamail/data/config/ast_io.h>
 
@@ -52,7 +53,7 @@ private:
   std::size_t errors_;
 };
 
-int main ()
+int main (int ac, char *av[])
 {
   namespace spirit = boost::spirit;
   namespace qi = spirit::qi;
@@ -64,7 +65,10 @@ int main ()
   my_error_handler my_eh;
   
   try {
-    r = config::parse (data, std::cin, my_eh);
+    if (ac == 1)
+      r = config::parse (data, std::cin, my_eh);
+    else
+      r = config::parse_file (data, av[1], my_eh);
   } 
   catch (config::expected_component const& e)
   {

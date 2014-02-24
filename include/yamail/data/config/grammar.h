@@ -5,9 +5,12 @@
 #include <yamail/data/config/namespace.h>
 
 #include <yamail/data/config/utf8_parser.h>
-#include <yamail/data/config/error_handler.h>
+#include <yamail/data/config/error_wrapper.h>
 #include <yamail/data/config/comments_parser.h>
 #include <yamail/data/config/ast.h>
+
+#include <yamail/data/config/detail/line_iterator_fixed.h>
+
 #include <string>
 
 #include <boost/spirit/include/qi.hpp>
@@ -16,7 +19,8 @@
 #include <boost/spirit/include/phoenix_fusion.hpp>
 #include <boost/spirit/include/phoenix_stl.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
-#include <boost/spirit/home/phoenix/core/argument.hpp> // phx::_3
+
+// #include <boost/spirit/home/phoenix/core/argument.hpp> // phx::_3
 
 
 #include <iostream>
@@ -29,6 +33,7 @@ BOOST_FUSION_ADAPT_STRUCT(
   (YAMAIL_FQNS_DATA_CP::ast_value, value)
   (std::size_t, line)
   (std::size_t, pos)
+  (std::string, file)
 )
 
 YAMAIL_FQNS_DATA_CP_BEGIN
@@ -44,31 +49,67 @@ using boost::spirit::utf8_symbol_type;
 using boost::spirit::utf8_string_type;
 using boost::spirit::binary_string_type;
 
+template <typename Iterator>
 struct save_line_pos
 {
+  Iterator first;
+
+  typedef void result_type;  // phoenix v3
+
+
+#if BOOST_PHOENIX_VERSION >= 0x3000
+  template <typename Sig> struct result;
+
+  template <typename This, typename Rng>
+  struct result<This (Rng const&, Iterator&)> { typedef void type; };
+
+  template <typename This, typename Ast, typename Rng>
+  struct result<This (Ast&, Rng const&, Iterator const&)> { typedef void type; };
+
+#else
   template <typename, typename>
-  struct result { typedef void type; };
+  struct result { typedef void type; }; // phoenix v2
+#endif
 
   template <typename Range>
-  void operator() (ast_node& ast_, Range const& rng) const
+  void operator() (Range const& rng, Iterator& iter) const
   {
+    iter = rng.begin ();
+  }
+
+  template <typename Range>
+  void operator() (ast_node& ast_, Range const& rng, Iterator const& iter) const
+  {
+#if 0
+// std::cout << __PRETTY_FUNCTION__ << "\n";
     using boost::spirit::get_line;
     std::size_t n = get_line (rng.begin ());
+// std::cout << "N=" << n << "\n";
     if (n != -1) 
     {
       BOOST_ASSERT (n <= (std::numeric_limits<short>::max)());
       ast_.line = n;
+      // ast_.pos = detail::get_column_FIXED (first, rng.begin ());
     } 
     else
+    {
       ast_.line = -1;
+      ast_.pos = -1;
+    }
+#else
+    auto p = rng.begin ().get_position ();
+    ast_.file = p.file;
+    ast_.line = p.line;
+    ast_.pos = p.column;
+#endif
   }
 };
 
 template <typename Iterator, typename F>
-struct tagger: qi::grammar<Iterator, void (ast_node&/*, char*/)>
+struct tagger: qi::grammar<Iterator, void (ast_node&)>
 {
   qi::rule<Iterator, void (ast_node&/*, char*/)> start;
-  qi::rule<Iterator, void(ast_node&)> epsilon;
+  qi::rule<Iterator, void (ast_node&)> epsilon;
 
   px::function<F> f;
 
@@ -82,11 +123,58 @@ struct tagger: qi::grammar<Iterator, void (ast_node&/*, char*/)>
     using qi::_r1;
     using qi::_r2;
 
+    Iterator i;
+
     // start   = omit[raw[lit(_r2)] [f(_r1, _1)]];
-    start   = omit[raw[eps]      [f(_r1, _1)]];
-    epsilon = omit[raw[eps]      [f(_r1, _1)]];
+    start   = omit[raw[eps]      [f(_r1, _1, i)]];
+    epsilon = omit[raw[eps]      [f(_r1, _1, i)]];
   }
 }; // tagger
+
+template <typename Iterator, typename F>
+struct tagger2: qi::grammar<Iterator, void ()>
+{
+  qi::rule<Iterator, void ()> start;
+  qi::rule<Iterator, void ()> epsilon;
+
+  px::function<F> f;
+
+  tagger2 (F f_ = F ()) : tagger2::base_type (start), f (f_)
+  {
+    using qi::omit;
+    using qi::raw;
+    using qi::eps;
+    using qi::lit;
+    using qi::_1;
+    using qi::_r1;
+    using qi::_r2;
+
+    Iterator i;
+
+    // start   = omit[raw[lit(_r2)] [f(_r1, _1)]];
+    start   = omit[raw[eps]      [f(_1, i)]];
+    epsilon = omit[raw[eps]      [f(_1, i)]];
+  }
+}; // tagger2
+
+#if 0
+struct annotation
+{
+  typedef void result_type;
+
+  template <typename, typename, typename>
+  struct result { typedef void type; };
+
+  annotation () {}
+
+  template <typename Iterator>
+  void operator() (ast& ast_, Iterator first, Iterator last) const
+  {
+    std::cout << "annotate: " << __PRETTY_FUNCTION__ << "\n";
+    std::cout << "LINE: " << get_line (first) << "\n";
+  }
+};
+#endif
 
 template <typename Iterator>
 struct multi_string_parser
@@ -144,15 +232,17 @@ struct multi_string_parser
   }
 };
 
-template <typename Iterator, typename ErrorHandler>
+template <typename Iterator, typename ErrorWrapper>
 struct null_include
 {
-  template <typename, typename=void> 
+  typedef void result_type;
+
+  template <typename, typename> 
   struct result { typedef void type; };
 
-  ErrorHandler error;
+  ErrorWrapper error;
 
-  null_include (ErrorHandler error)
+  null_include (ErrorWrapper error)
     : error (error)
   {
   }
@@ -167,8 +257,8 @@ struct null_include
 
 template <
     typename Iterator
-  , typename ErrorHandler = error_handler<>
-  , typename IncludeHandler = null_include<Iterator, ErrorHandler>
+  , typename ErrorWrapper = error_wrapper<>
+  , typename IncludeHandler = null_include<Iterator, ErrorWrapper>
 >
 struct grammar: qi::grammar<Iterator, ast (), whitespace<Iterator> >
 {
@@ -193,25 +283,27 @@ struct grammar: qi::grammar<Iterator, ast (), whitespace<Iterator> >
 
   utf8::parser<Iterator> quoted_string;
 
-  px::function<ErrorHandler> const error;
-  px::function<IncludeHandler> const include;
+  px::function<ErrorWrapper> const error_wrapper_function;
+  // px::function<annotation> annotation_function;
+  px::function<IncludeHandler> const include_handler_function;
 
-  tagger<Iterator, save_line_pos> pos;
+  tagger<Iterator, save_line_pos<Iterator> > pos;
+  // tagger2<Iterator, save_line_pos<Iterator> > init_pos;
 
   explicit
   grammar (std::string const& source = "<source>") 
     : grammar::base_type (start)
-    , error (ErrorHandler (source))
-    , include (ErrorHandler (source))
+    , error_wrapper_function (ErrorWrapper (source))
+    , include_handler_function (ErrorWrapper (source))
   { 
     init ();
   }
     
   explicit 
-  grammar (ErrorHandler ehandler)
+  grammar (ErrorWrapper ewrapper)
     : grammar::base_type (start)
-    , error (ehandler)
-    , include (ehandler)
+    , error_wrapper_function (ewrapper)
+    , include_handler_function (ewrapper)
   {
     init ();
   }
@@ -219,24 +311,24 @@ struct grammar: qi::grammar<Iterator, ast (), whitespace<Iterator> >
   explicit
   grammar (IncludeHandler ihandler, std::string const& source = "<source>")
     : grammar::base_type (start)
-    , error (ErrorHandler (source))
-    , include (ihandler)
+    , error_wrapper_function (ErrorWrapper (source))
+    , include_handler_function (ihandler)
   {
     init ();
   }
 
   grammar (std::string const& source, IncludeHandler ihandler)
     : grammar::base_type (start)
-    , error (ErrorHandler (source))
-    , include (ihandler)
+    , error_wrapper_function (ErrorWrapper (source))
+    , include_handler_function (ihandler)
   {
     init ();
   }
     
-   grammar (ErrorHandler ehandler, IncludeHandler ihandler)
+   grammar (ErrorWrapper ewrapper, IncludeHandler ihandler)
     : grammar::base_type (start)
-    , error (ehandler)
-    , include (ihandler)
+    , error_wrapper_function (ewrapper)
+    , include_handler_function (ihandler)
   {
     init ();
   }
@@ -244,9 +336,9 @@ struct grammar: qi::grammar<Iterator, ast (), whitespace<Iterator> >
    void init ();
 };
 
-template <typename Iterator, typename ErrorHandler, typename IncludeHandler>
+template <typename Iterator, typename ErrorWrapper, typename IncludeHandler>
 void 
-grammar<Iterator, ErrorHandler, IncludeHandler>::init ()
+grammar<Iterator, ErrorWrapper, IncludeHandler>::init ()
 {
   using qi::lexeme;
   using qi::no_case;
@@ -270,6 +362,7 @@ grammar<Iterator, ErrorHandler, IncludeHandler>::init ()
   namespace phx_arg = phoenix::arg_names;
 
   start = statements.alias ();
+
   // statements = *statement [ push_back (at_c<2> (_val), _1) ];
   statements = *statement;
 
@@ -280,25 +373,27 @@ grammar<Iterator, ErrorHandler, IncludeHandler>::init ()
         lit ('%')
     >   ( 
           (   qi::string ("import")   [ at_c<AST_ID> (_val) = val (Import) ]
-//                                      [ at_c<AST_KEY> (_val) = val ("import") ]
+//                                    [ at_c<AST_KEY> (_val) = val ("import") ]
             > single_string           [ at_c<AST_NAME> (_val) = _1 ]
           )
         | (   qi::string ("include")  [ at_c<AST_ID> (_val) = val (Include) ]
-//                                      [ at_c<AST_KEY> (_val) = val ("include") ]
+//                                    [ at_c<AST_KEY> (_val) = val ("include") ]
                                       // put included filename into name field
             > single_string           [ at_c<AST_NAME> (_val) = _1 ] 
-                                      [ include (_val, _1) ]
+                                      [ include_handler_function (_val, _1) ]
           )
         )  
     >   -(    no_case ["into"] 
             > multi_string            [ at_c<AST_KEY> (_val) = _1 ]
          )
-    ;
+  ;
 
   regular_command 
-    =   eps                                   [ at_c<AST_ID> (_val) = val (Other) ]
-    >>  key                                   [ at_c<AST_KEY> (_val) = _1 ]
-    >   value(at_c<AST_ID> (_val), at_c<AST_NAME> (_val)) [ at_c<AST_VALUE> (_val) = _1 ]
+    =   eps                               [ at_c<AST_ID> (_val) = val (Other) ]
+    >>  key                               [ at_c<AST_KEY> (_val) = _1 ]
+
+    >   value(at_c<AST_ID> (_val), at_c<AST_NAME> (_val)) 
+                                          [ at_c<AST_VALUE> (_val) = _1 ]
   ;
 
   string = +(char_ - char_ (" ;\"][{}")) ;
@@ -348,7 +443,12 @@ grammar<Iterator, ErrorHandler, IncludeHandler>::init ()
   BOOST_SPIRIT_DEBUG_NODE(control_command);
   BOOST_SPIRIT_DEBUG_NODE(regular_command);
 
-  on_error<retry> (start, error (phx_arg::_3, _1, _2, _3, _4));
+  on_error<retry> (start, 
+      error_wrapper_function (phx_arg::_3, _1, _2, _3, _4));
+#if 0
+  on_success (start,
+      annotation_function (_val, _1, _2));
+#endif
 }
 
 YAMAIL_FQNS_DATA_CP_END

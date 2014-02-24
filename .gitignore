@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+build/
+>>>>>>> config-parser
 *.swp
 *.h-
 
@@ -13,4 +17,8 @@
 # Compiled Static libraries
 *.lai
 *.la
+<<<<<<< HEAD
 *.a
+=======
+*.a
+>>>>>>> config-parser

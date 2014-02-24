@@ -13,13 +13,12 @@ inline bool
 parse (ast& nodes, Stream& stream, 
     paths_type const& include_dirs = paths_type ())
 {
-  default_custom_error_handler eh;
+  default_error_handler eh;
   return parse (nodes, stream, eh, include_dirs);
 }
 
 template <typename Stream, typename UserErrorHandler>
-inline
-bool
+inline bool
 parse (ast& nodes, Stream& stream, UserErrorHandler& custom_handler,
     paths_type const& include_dirs = paths_type ())
 {

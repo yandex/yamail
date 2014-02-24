@@ -34,6 +34,8 @@ typedef boost::uint32_t uchar;
 
 struct push_string 
 {
+  typedef void result_type;
+
   template <typename, typename>
   struct result 
   {
@@ -52,6 +54,8 @@ struct push_string
 
 struct push_escaped_string 
 {
+  typedef void result_type;
+
   template <typename, typename>
   struct result 
   {

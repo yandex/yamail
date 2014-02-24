@@ -151,7 +151,7 @@ std::ostream&
 ast_node_printer::operator() (ast_node const& node) const
 {
   tab (os_, indent_);
-  os_ << node.line << '@';
+  os_ << node.file << ':' << node.line << ':' << node.pos << '@';
   os_ << node.key << '(' << node.id << ')' << ' ';
 
   if (node.name) os_ << node.name.get () << ' ';

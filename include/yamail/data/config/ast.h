@@ -24,10 +24,10 @@ struct value_void_t {};
 
 #if 1
 typedef boost::variant<
-    value_void_t
-  , value_compound_t
-  , value_array_t
-  , value_single_t
+    value_void_t            // 
+  , value_compound_t        // { ... }
+  , value_array_t           // [ v1, v2, v3, ... ]
+  , value_single_t          // single value
   , boost::shared_ptr<ast>  // included data
   , ast*                    // imported data
   , void*                   // binary data
@@ -65,12 +65,13 @@ struct ast_node
   std::size_t line;
   std::size_t pos;
 
+  std::string file;
+
   ast_node ()
     : id (Other)
     , line (-1)
     , pos (-1)
   {}
-
 };
 
 enum field_index {

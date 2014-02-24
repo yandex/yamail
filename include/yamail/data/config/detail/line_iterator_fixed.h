@@ -9,7 +9,8 @@ namespace detail {
 
 // Fixed version of line_pos_iterator get_line_start
 template <class Iterator>
-inline Iterator get_line_start_FIXED (Iterator lower_bound, Iterator current)
+inline Iterator 
+get_line_start_FIXED (Iterator lower_bound, Iterator current)
 {
    bool e = false;
    Iterator latest = lower_bound;
@@ -29,7 +30,8 @@ inline Iterator get_line_start_FIXED (Iterator lower_bound, Iterator current)
 }
 
 template <class Iterator>
-inline std::size_t get_column_FIXED (Iterator lower_bound,
+inline std::size_t 
+get_column_FIXED (Iterator lower_bound,
                                Iterator current,
                                std::size_t tabs = 4)
 {
@@ -51,8 +53,8 @@ inline std::size_t get_column_FIXED (Iterator lower_bound,
 
 template <typename Iterator>
 inline boost::iterator_range<Iterator>
-get_current_line_FIXED (Iterator lower_bound, Iterator current, Iterator 
-upper_bound)
+get_current_line_FIXED (
+    Iterator lower_bound, Iterator current, Iterator upper_bound)
 {
    // get line start
    Iterator line_start = get_line_start_FIXED (lower_bound, current);
