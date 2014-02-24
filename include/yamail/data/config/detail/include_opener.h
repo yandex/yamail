@@ -120,7 +120,7 @@ public:
 
       // parse iterators
       // bool ret = 
-        parser_ (*nodes, path, file.begin (), file.end (), fs_handler_);
+        parser_ (*nodes, file.begin (), file.end ());
 #if 0
       ret = detail::parse (*nodes, path, file.begin (), file.end (), 
           error_wrapper_, include_dirs_, fs_handler_, *this);
@@ -141,6 +141,25 @@ private:
   stack_type          stack_;
   allocator_type      alloc_;
 };
+
+template <
+    typename Parser
+  , typename FsHandler = boost_fs_handler<>
+  , typename IncludeDirs = std::vector<typename FsHandler::path_type>
+  , typename AllocT = std::allocator<ast> 
+> inline include_opener<Parser, FsHandler, IncludeDirs, AllocT>
+make_include_opener (Parser&& parser, 
+      FsHandler&& fs = FsHandler (), 
+      IncludeDirs&& dirs = IncludeDirs (),
+      AllocT&& alloc = AllocT ())
+{
+  return include_opener<Parser, FsHandler, IncludeDirs, AllocT> (
+      std::forward<Parser> (parser), 
+      std::forward<FsHandler> (fs), 
+      std::forward<IncludeDirs> (dirs), 
+      std::forward<AllocT> (alloc)
+  );
+}
 
 
 } // namespace detail

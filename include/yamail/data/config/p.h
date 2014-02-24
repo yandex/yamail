@@ -19,6 +19,33 @@
 
 YAMAIL_FQNS_DATA_CP_BEGIN
 
+template <
+    typename FilePath, typename IncludeDirs
+  , typename ErrorHandler, typename Fs>
+struct parse_helper
+{
+  parse_helper (rw_in<IncludeDirs> const& dirs, ErrorHandler& eh)
+    : dirs_ (dirs)
+    , eh_ (eh)
+  {
+  }
+
+  template <typename Ast, typename Path, 
+           typename Iter1, typename Iter2, typename Opener>
+  bool operator() (Ast&& ast, Path&& path, 
+      Iter1&& first, Iter2&& last, Opener&& operner) const
+  {
+    return detail::parse_iterator (
+      nodes, path_, dirs, first, last,
+      eh_, opener);
+  }
+
+  IncludeDirs& dirs;
+  ErrorHandler& eh_;
+};
+
+
+
 template <typename ErrorHandler, typename FsHandler>
 inline bool parse_with_error_handler (
     ast& nodes, typename FsHandler::file_path const& path, 
@@ -28,11 +55,7 @@ inline bool parse_with_error_handler (
 {
   std::cout << __PRETTY_FUNCTION__ << "\n";
 
-  detail::ast_cache<error_wrapper<ErrorHandler>, FsHandler> cacher;
-  detail::boost_fs_handler fs;
-
-  return detail::parse (nodes, path, include_dirs, 
-      eh.get (), fs.get (), cacher);
+  return detail::parse (nodes, path, dirs, make_parse_helper (dirs, eh));
 }
 
 template <
