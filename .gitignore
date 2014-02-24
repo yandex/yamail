@@ -15,8 +15,4 @@ build/
 # Compiled Static libraries
 *.lai
 *.la
-<<<<<<< HEAD
 *.a
-=======
-*.a
->>>>>>> 4f83052... fix git ignore file
