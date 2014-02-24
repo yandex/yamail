@@ -1,8 +1,17 @@
 
 *.swp
-
-include/yamail/data/config/detail/fs
-
-include/yamail/data/config/detail/fs.cc
-
 *.h-
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
