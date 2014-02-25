@@ -87,10 +87,6 @@ private:
     void operator= (basic_fragment const&);
 }; // class basic_fragment
 
-inline std::size_t buffer_size (basic_fragment const& s) {
-    return s.size ();
-}
-
 template <typename T>
 T buffer_cast (basic_fragment const& s) {
     return static_cast<T> (s.begin ());
@@ -99,9 +95,9 @@ T buffer_cast (basic_fragment const& s) {
 template <typename Alloc /* = std::allocator<char> */>
 class basic_raii_fragment : public basic_fragment {
 public:
-    typedef typename Alloc::template rebind<char>::other allocator_type;
+    typedef typename Alloc::template rebind<byte_t>::other allocator_type;
 
-    basic_raii_fragment ( std::size_t size,
+    basic_raii_fragment ( size_type size,
             allocator_type const& allocator = allocator_type () )
     : alloc_ (allocator) {
         allocate(size);
@@ -140,7 +136,7 @@ private:
 template <class RAII>
 class raii_wrapper_fragment : public basic_fragment {
 public:
-    raii_wrapper_fragment( const char* data, std::size_t size, const RAII& raii)
+    raii_wrapper_fragment(byte_t* data, std::size_t size, const RAII& raii)
     : basic_fragment(data, size), raii_(raii) {
     }
 
