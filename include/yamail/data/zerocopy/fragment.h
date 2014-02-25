@@ -69,10 +69,6 @@ public:
     bool contains(const_iterator i) const {
         return i >= begin() && i <= end();
     }
-
-    std::pair<const byte_t*, size_type> buff() const {
-        return std::make_pair (data_, size_);
-    }
 protected:
     void set_data(byte_t * data, size_type size) {
         data_ = data;

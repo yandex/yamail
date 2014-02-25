@@ -182,7 +182,7 @@ private:
             result = (*cur_seg_)->end () - cur_val_;
             fragment_iterator cur_seg = cur_seg_;
             for (++cur_seg; cur_seg != other.cur_seg_ && cur_seg != frag_list ().end (); ++cur_seg) {
-                result += (*cur_seg)->buff ().second;
+                result += (*cur_seg)->size();
             }
             if (cur_seg == other.cur_seg_) {
                 result += (other.cur_val_ - (*cur_seg)->begin ());
@@ -193,7 +193,7 @@ private:
         result = cur_val_ - (*cur_seg_)->begin ();
         fragment_iterator cur_seg = cur_seg_;
         for (--cur_seg; cur_seg != other.cur_seg_; --cur_seg) {
-            result += (*cur_seg)->buff ().second;
+            result += (*cur_seg)->size();
         }
         assert (cur_seg == other.cur_seg_);
         result += ((*cur_seg)->end () - other.cur_val_);

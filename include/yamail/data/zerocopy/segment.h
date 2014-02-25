@@ -151,15 +151,13 @@ public:
         for (++next; i != end; ++i) {
             if (i == begin || next == end) {
                 const detail::basic_fragment::byte_t* data_begin =
-                (i == begin ? head_ : (*i)->buff ().first);
+                (i == begin ? head_ : (*i)->cbegin());
                 const detail::basic_fragment::byte_t* data_end =
-                (next == end
-                        ? tail_
-                        : (*i)->buff ().first + (*i)->buff ().second);
+                (next == end ? tail_ : (*i)->cend());
 
                 result += (data_end - data_begin);
             } else {
-                result += (*i)->buff ().second;
+                result += (*i)->size();
             }
             if (next != end) {
                 ++next;
