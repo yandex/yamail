@@ -13,11 +13,12 @@ namespace detail {
 class basic_fragment {
 public:
     typedef char byte_t;
+    typedef std::size_t size_type;
 
     basic_fragment () : size_ (0), data_ (0) {
     }
 
-    basic_fragment ( const char* data, std::size_t size )
+    basic_fragment ( byte_t* data, size_type size )
     : size_ (size), data_ (data) {
     }
 
@@ -33,16 +34,32 @@ public:
         data_ = x.data_;
         x.size_ = 0;
         x.data_ = 0;
+        return *this;
     }
 #endif
 
-    typedef const char* const_iterator;
+    typedef const byte_t* const_iterator;
 
     const_iterator begin () const {
         return data_;
     }
     const_iterator end () const {
-        return &data_[size_];
+        return begin() + size();
+    }
+    const_iterator cbegin () const {
+        return begin();
+    }
+    const_iterator cend () const {
+        return end();
+    }
+
+    typedef byte_t* iterator;
+
+    iterator begin () {
+        return data_;
+    }
+    iterator end () {
+        return begin() + size();
     }
 
     std::size_t size () const {
@@ -50,20 +67,27 @@ public:
     }
 
     bool contains(const_iterator i) const {
-        return i >= data_ && i <= &data_[size_];
+        return i >= begin() && i <= end();
     }
 
-    std::pair<const byte_t*, std::size_t> buff() {
+    std::pair<const byte_t*, size_type> buff() const {
         return std::make_pair (data_, size_);
     }
-
 protected:
-    mutable std::size_t size_;
-    mutable const char* data_;
+    void set_data(byte_t * data, size_type size) {
+        data_ = data;
+        size_ = size;
+    }
+    byte_t * data() {
+        return data_;
+    }
+private:
+    size_type size_;
+    byte_t* data_;
 
     basic_fragment (basic_fragment const&);
     void operator= (basic_fragment const&);
-};
+}; // class basic_fragment
 
 inline std::size_t buffer_size (basic_fragment const& s) {
     return s.size ();
@@ -81,57 +105,38 @@ public:
 
     basic_raii_fragment ( std::size_t size,
             allocator_type const& allocator = allocator_type () )
-    : alloc_ (allocator), real_data_ (alloc_.allocate (size)) {
-        data_ = real_data_;
-        size_ = size;
+    : alloc_ (allocator) {
+        allocate(size);
     }
 
     ~basic_raii_fragment () {
-        if (real_data_) {
-            alloc_.deallocate (real_data_, size_);
-        }
+        deallocate();
     }
 
 #if 0 // move constructor
     basic_raii_fragment (basic_fragment&& x)
-    : alloc_ (x.alloc_), real_data_ (x.real_data_) {
-        x.real_data_ = 0;
+    : basic_fragment(x), alloc_ (x.alloc_) {
     }
 
     basic_raii_fragment& operator= (basic_raii_fragment&& x) {
-        if (real_data_) {
-            alloc_.deallocate (real_data_, size_);
-        }
-
+        deallocate();
+        basic_fragment::operator= (x);
         alloc_ = x.alloc_;
-        real_data_ = x.real_data_;
-        x.real_data_ = 0;
+        return *this;
     }
 #endif
 
-    typedef char* iterator;
-    const_iterator begin () const {
-        return cbegin ();
-    }
-    const_iterator end () const {
-        return cend ();
-    }
-    const_iterator cbegin () const {
-        return data_;
-    }
-    const_iterator cend () const {
-        return &data_[size_];
-    }
-    iterator begin () {
-        return real_data_;
-    }
-    iterator end () {
-        return &real_data_[size_];
-    }
-
 private:
+    void allocate(size_type size) {
+        set_data(alloc_.allocate (size), size);
+    }
+    void deallocate() {
+        if (data()) {
+            alloc_.deallocate (data(), size());
+            set_data(0, 0);
+        }
+    }
     allocator_type alloc_;
-    char* real_data_;
 };
 
 template <class RAII>
@@ -146,6 +151,8 @@ private:
 };
 
 typedef basic_fragment fragment;
+
+} // namespace detail
 
 YAMAIL_FQNS_DATA_ZC_END
 #endif // _YAMAIL_DATA_ZEROCOPY_DETAIL_FRAGMENT_H_
