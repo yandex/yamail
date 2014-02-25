@@ -22,6 +22,8 @@ public:
     : size_ (size), data_ (data) {
     }
 
+    virtual ~basic_fragment() {}
+
 #if 0 // move constructor
     basic_fragment (basic_fragment&& x)
     : size_ (x.size_), data_ (x.data_) {
