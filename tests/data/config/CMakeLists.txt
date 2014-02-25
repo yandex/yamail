@@ -1,7 +1,7 @@
 enable_testing()
 #find_package(Check REQUIRED)
 include_directories(${CMAKE_SOURCE_DIR}/include .)
-include_directories(${CHECK_INCLUDE_DIRS})
+# include_directories(${CHECK_INCLUDE_DIRS})
 # set(LIBS ${LIBS} ${CHECK_LIBRARIES} isti_clib)
 
 add_executable(include_opener include_opener.cc)

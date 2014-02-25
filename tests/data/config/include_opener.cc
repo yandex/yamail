@@ -7,7 +7,9 @@
 struct Saver 
 {
   template <class AST, class PATH, class ITER, class FS>
-  bool operator() (AST&& ast, PATH&& path, ITER&& first, ITER&& last, FS&& fs)
+  bool operator() (AST&& /*ast*/, PATH&& /*path*/, 
+      ITER&& first, ITER&& last, 
+      FS&& /*fs*/)
   {
     // std::cout << "opening: " << path << "\n";
     // std::cout << boost::make_iterator_range (first, last) << "\n";;

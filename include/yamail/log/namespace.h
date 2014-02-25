@@ -1,0 +1,15 @@
+#ifndef _YAMAIL_LOG_NAMESPACE_H_
+#define _YAMAIL_LOG_NAMESPACE_H_
+#include <yamail/config.h>
+#include <yamail/namespace.h>
+
+#define YAMAIL_NS_LOG log
+#define YAMAIL_FQNS_LOG YAMAIL_FQNS::YAMAIL_NS_LOG
+
+#define YAMAIL_NS_LOG_BEGIN namespace YAMAIL_NS_LOG {
+#define YAMAIL_NS_LOG_END }
+
+#define YAMAIL_FQNS_LOG_BEGIN YAMAIL_NS_BEGIN YAMAIL_NS_LOG_BEGIN
+#define YAMAIL_FQNS_LOG_END YAMAIL_NS_LOG_END YAMAIL_NS_END
+
+#endif // _YAMAIL_LOG_NAMESPACE_H_
