@@ -17,22 +17,17 @@ YAMAIL_FQNS_DATA_ZC_BEGIN
 
 template< typename Alloc = std::allocator<void> >
 class basic_segment {
+public:
     typedef detail::basic_fragment fragment_type;
     typedef compat::shared_ptr<fragment_type> fragment_ptr;
     typedef typename Alloc::template rebind<fragment_ptr>::other allocator_type;
-    typedef std::vector<fragment_ptr, allocator_type> fragment_list;
 
+    typedef std::vector<fragment_ptr, allocator_type> fragment_list;
     typedef typename fragment_type::const_iterator fragment_const_iterator;
 
-public:
-    template <typename T>
-    struct iteratorT {
-        typedef zerocopy::iterator<T, fragment_type, fragment_list> type;
-    };
-
-    typedef typename iteratorT<char const>::type iterator;
-    typedef typename iteratorT<char const>::type const_iterator;
-    typedef typename fragment_list::const_iterator fragment_iterator;
+    typedef zerocopy::iterator<fragment_type::byte_t const, fragment_type, fragment_list>
+            const_iterator;
+    typedef const_iterator iterator;
 
     basic_segment (allocator_type const& alloc = allocator_type ())
     : fragment_list_(alloc), head_(0), tail_(0) {
@@ -52,29 +47,11 @@ public:
     : fragment_list_(seq.begin (), seq.end (), alloc), head_(head), tail_(tail) {
     }
 
-    template <typename T>
-    typename iteratorT<T>::type beginT () const {
-        return typename iteratorT<T>::type(fragment_list_, head_);
+    const_iterator begin () const {
+        return const_iterator(fragment_list_, head_);
     }
-
-    template <typename T>
-    typename iteratorT<T>::type endT () const {
-        return typename iteratorT<T>::type(fragment_list_, tail_, true);
-    }
-
-    iterator begin () const {
-        return beginT<char const> ();
-    }
-    iterator end () const {
-        return endT<char const> ();
-    }
-
-    fragment_iterator begin_fragment () const {
-        return fragment_list_.begin ();
-    }
-
-    fragment_iterator end_fragment () const {
-        return fragment_list_.end ();
+    const_iterator end () const {
+        return const_iterator(fragment_list_, tail_, true);
     }
 
     basic_segment& append(const basic_segment& x) {
@@ -108,7 +85,7 @@ public:
             fragment_list_.push_back(x.fragment_list_.front());
         }
 
-        fragment_iterator xs_second_frag_it = x.fragment_list_.begin();
+        typename fragment_list::const_iterator xs_second_frag_it = x.fragment_list_.begin();
         ++xs_second_frag_it;
 
         fragment_list_.insert(
@@ -130,10 +107,11 @@ public:
         if (fragment_list_.empty ()) {
             return 0;
         }
-        typename fragment_list::const_iterator begin = begin_fragment ();
-        typename fragment_list::const_iterator end = end_fragment ();
-        typename fragment_list::const_iterator i = begin;
-        typename fragment_list::const_iterator next = begin;
+        typedef typename fragment_list::const_iterator Iter;
+        Iter begin = fragment_list_.begin();
+        Iter end = fragment_list_.end ();
+        Iter i = begin;
+        Iter next = begin;
         std::size_t result = 0;
         for (++next; i != end; ++i) {
             if (i == begin || next == end) {
