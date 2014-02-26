@@ -97,7 +97,6 @@ class rotate_text_file_sink_factory: public logging::sink_factory<char>
     {
         typedef std::basic_istringstream<char> isstream;
         typedef rotate_basic_text_file_backend<char> backend_t;
-        typedef std::map<std::string, boost::any> params_t;
         shared_ptr<backend_t> backend = make_shared<backend_t>();
 
         // FileName

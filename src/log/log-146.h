@@ -87,7 +87,6 @@ create_rotate_text_file_sink(std::map< std::string, boost::any > const& params)
 {
   typedef std::basic_istringstream< char > isstream;
   typedef rotate_basic_text_file_backend< char > backend_t;
-  typedef backend_t::path_type path_type;
   typedef std::map< std::string, boost::any > params_t;
   shared_ptr< backend_t > backend = make_shared< backend_t >();
 
