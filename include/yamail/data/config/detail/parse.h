@@ -13,7 +13,6 @@
 #include <yamail/data/config/ast.h>
 #include <yamail/data/config/paths_type.h>
 #include <yamail/data/config/grammar.h>
-#include <yamail/data/config/detail/ast_cache_fwd.h>
 #include <yamail/data/config/detail/line_forward_iterator.h>
 
 YAMAIL_FQNS_DATA_CP_BEGIN
@@ -22,15 +21,16 @@ namespace detail {
 namespace spirit = boost::spirit;
 
 template <
-    typename ForwardIterator
+    typename Iterator
+  , typename Opener
   , typename ErrorHandler
   , typename IncludeHandler
 >
 bool
 parse (ast& nodes, std::string const& path, 
-    ForwardIterator first, ForwardIterator last, 
+    Iterator first, Iterator last, 
     paths_type const& include_dirs, 
-    ast_cache<ErrorHandler, IncludeHandler>& cache,
+    Opener& opener,
     ErrorHandler ehandler, IncludeHandler ihandler)
 {
   auto i_first = line_forward_iterator_begin (first, last);
@@ -42,36 +42,38 @@ parse (ast& nodes, std::string const& path,
   return parse_wrapped (
       nodes, 
       i_first, line_forward_iterator_end (first, last),
-      include_dirs, cache, ehandler, ihandler);
+      include_dirs, opener, ehandler, ihandler);
 }
 
 template <
-    typename ForwardIterator
+    typename Iterator
+  , typename Opener
   , typename ErrorHandler
   , typename IncludeHandler
 >
 bool
-parse (ast& nodes, ForwardIterator first, ForwardIterator last, 
+parse (ast& nodes, Iterator first, Iterator last, 
     paths_type const& include_dirs, 
-    ast_cache<ErrorHandler, IncludeHandler>& cache,
+    Opener& opener,
     ErrorHandler ehandler, IncludeHandler ihandler)
 {
   return parse_wrapped (
       nodes, 
       line_forward_iterator_begin (first, last), 
       line_forward_iterator_end (first, last),
-      include_dirs, cache, ehandler, ihandler);
+      include_dirs, opener, ehandler, ihandler);
 }
 
 template <
     typename ForwardIterator
+  , typename Opener
   , typename ErrorHandler
   , typename IncludeHandler
 >
 bool
 parse_wrapped (ast& nodes, ForwardIterator first, ForwardIterator last, 
     paths_type const& include_dirs, 
-    ast_cache<ErrorHandler, IncludeHandler>& cache,
+    Opener& opener,
     ErrorHandler ehandler, IncludeHandler ihandler)
 {
   BOOST_MPL_ASSERT ((

@@ -1,5 +1,7 @@
-<<<<<<< HEAD
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 2.8)
+set(CMAKE_MODULE_PATH 
+  ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules/"
+)
 
 project(yamail)
 set(TARGET_LIBRARY "yamail")
@@ -25,7 +27,7 @@ set(FLAGS
  "-Wredundant-decls"
  "-fexceptions"
  "-pthread"
- "-fpic"
+ "-fPIC"
  "-pipe"
 )
 foreach(FLAG ${FLAGS})
@@ -33,6 +35,7 @@ foreach(FLAG ${FLAGS})
 endforeach()
 
 set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_MULTITHREADED ON)
 add_definitions(-DBOOST_LOG_DYN_LINK)
 find_package(Boost REQUIRED
     log
@@ -61,14 +64,17 @@ if(CMAKE_BUILD_TEST)
     add_subdirectory(tests)
 endif(CMAKE_BUILD_TEST)
 
+
+# CREATE PKGCONFIG FILES
+# we use the same files like ./configure, so we have to set its vars
+if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
+  set(CMAKE_INSTALL_LIBDIR lib64)
+endif(NOT DEFINED CMAKE_INSTALL_LIBDIR)
+set(prefix      ${CMAKE_INSTALL_PREFIX})
+set(exec_prefix ${CMAKE_INSTALL_PREFIX})
+set(libdir      ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
+set(includedir  ${CMAKE_INSTALL_PREFIX}/include)
+# set(LIBS        "-lz -lm")
+
 install(DIRECTORY ${INCLUDE_DIR}/yamail DESTINATION include)
 install(TARGETS ${TARGET_LIBRARY} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-=======
-cmake_minimum_required(VERSION 2.8)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules/")
-project(yamail)
-install(DIRECTORY include DESTINATION include)
-enable_testing()
-# add_subdirectory(src)
-add_subdirectory(tests)
->>>>>>> config-parser
