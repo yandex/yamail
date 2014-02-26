@@ -118,19 +118,6 @@ public:
         return *this;
     }
 
-    template <typename T>
-    basic_segment get_part (typename iteratorT<T>::type const& begin,
-            typename iteratorT<T>::type const& end) {
-        assert(end.cur_seg_ != end.frag_list().end());
-        basic_segment ret;
-        typename fragment_list::const_iterator i_seg_end = end.cur_seg_;
-        ret.fragment_list_.assign (begin.cur_seg_, ++i_seg_end);
-        ret.head_ = begin.cur_val_;
-        ret.tail_ = end.cur_val_;
-
-        return ret;
-    }
-
     fragment_const_iterator head () const {
         return head_;
     }
