@@ -4,8 +4,8 @@
 #include <yamail/config.h>
 #include <yamail/data/config/namespace.h>
 
-#include <yamail/data/config/detail/ast_cache.h>
 #include <yamail/data/config/detail/parse.h>
+#include <yamail/data/config/detail/include_cache.h>
 
 #include <boost/range/begin.hpp>
 #include <boost/range/end.hpp>
@@ -50,17 +50,18 @@ parse (ast& nodes, std::string const& path, Iterator first, Iterator last,
 {
   typedef error_wrapper<ErrorHandler> error_wrapper_type;
   typedef detail::include_handler<error_wrapper_type> include_handler_type;
-  typedef detail::ast_cache<error_wrapper_type, include_handler_type> 
+
+  typedef detail::include_opener<error_wrapper_type, include_handler_type> 
     cache_type;
 
   error_wrapper_type    ehandler (error_handler);
-  cache_type            cache;
+  auto opener = [] {};
 
   include_handler_type  ihandler = 
     include_handler_type (ehandler, include_dirs, cache);
 
   return detail::parse (nodes, "", first, last, 
-      include_dirs, cache, ehandler, ihandler);
+      include_dirs, opener, ehandler, ihandler);
 }
 
 #if 0
