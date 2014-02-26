@@ -26,5 +26,5 @@ set(LIBS ${LIBS} ${Boost_LIBRARIES})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTESTS_DIR=\\\"${CMAKE_CURRENT_SOURCE_DIR}\\\"")
 
-add_subdirectory(data)
+#add_subdirectory(data)
 add_subdirectory(memory)

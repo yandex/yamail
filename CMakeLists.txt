@@ -23,6 +23,7 @@ set(FLAGS
  "-Wctor-dtor-privacy"
  "-Wnon-virtual-dtor"
  "-Wold-style-cast"
+# "-Wno-sign-conversion"
  "-Wpacked"
  "-Wredundant-decls"
  "-fexceptions"
