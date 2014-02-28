@@ -64,56 +64,6 @@ class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
     typedef std::list<fragment_ptr, fragment_list_allocator> fragment_list;
     typedef typename fragment_list::const_iterator fragment_list_const_iterator;
 
-    // deallocator for shared_ptr
-    template<typename Al>
-    class deallocator {
-        // NB: the life time of deallocator may be longer than
-        // life time of the streambuf, so we cannot use reference here.
-        // If allocator copy will be costly, should use shared ptrs instead.
-        Al& alloc_;
-
-    public:
-        explicit deallocator(Al& a) : alloc_(a) {
-        }
-
-        template<typename T>
-        void operator()(T* t) {
-            alloc_.destroy(t);
-            alloc_.deallocate(t, 1);
-        }
-    };
-
-    // allocator guard - very similar to auto_ptr
-    template<typename T, typename A = std::allocator<T> >
-    class alloc_guard {
-        A alloc;
-        T* ptr;
-
-    public:
-        alloc_guard(T* t, A a = A()) : alloc(a), ptr(t) {
-        }
-
-        ~alloc_guard() {
-            if (ptr) {
-                alloc.destroy(ptr);
-                alloc.deallocate(ptr, 1);
-            }
-        }
-
-        T* get() {
-            return ptr;
-        }
-        T* release() {
-            T* tmp(ptr);
-            ptr = 0;
-            return tmp;
-        }
-        void reset(T* t = 0) {
-            alloc_guard tmp(t);
-            std::swap(*this, tmp);
-        }
-    };
-
     // private vars
 
     std::size_t max_size_;
@@ -310,13 +260,8 @@ public:
         AF af(allocator_);
 
         while (start_fragments--) {
-            alloc_guard<fragment_type> ptr(af.allocate(1));
-
-            new (static_cast<void*>(ptr.get())) fragment_type(
-                    start_fragment_len, fallocator_);
             fragments_.push_back(
-                    fragment_ptr(ptr.release(), deallocator<AF>(af),
-                            allocator_));
+                boost::allocate_shared<fragment_type>(af, start_fragment_len, fallocator_));
 
             tail_size_ += start_fragment_len;
         }
@@ -724,16 +669,8 @@ protected:
             needed_size << " bytes, will allocate " << sz << "\n";
 #endif
 
-            // allocate memory for fragment
-            alloc_guard<fragment_type> ptr(af.allocate(1));
-
-            // construct fragment with calculated size
-            new (static_cast<void*>(ptr.get())) fragment_type(sz, fallocator_);
-
             // add created fragment to list
-            fragments_.push_back(
-                    fragment_ptr(ptr.release(), deallocator<AF>(af),
-                            allocator_));
+            fragments_.push_back(boost::allocate_shared<fragment_type>(af, sz, fallocator_));
 
             // increment put_size
             tail_size_ += sz;
