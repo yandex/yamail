@@ -39,23 +39,21 @@ protected:
     typedef typename fragment_type::const_iterator skip_iterator;
 
 public:
-    iterator () : after_last_frag_ (false) {}
+    iterator () : fragment_list_(0), after_last_frag_ (false) {}
 
     iterator (fragment_list const& segm_seq,
             skip_iterator const& cur_val,
             bool end_iterator = false)
     : fragment_list_ (&segm_seq),
-      cur_seg_ (frag_list ().begin ()),
-      cur_val_ (cur_val),
-      after_last_frag_ (frag_list ().empty () || cur_val == (*cur_seg_)->end()) {
-        // assert (! frag_list ().empty ());
-
+      fragment_ (frag_list ().begin ()),
+      pos_ (cur_val),
+      after_last_frag_ (frag_list ().empty () || cur_val == (*fragment_)->end()) {
         if (end_iterator && !frag_list ().empty ()) {
-            while (!(*cur_seg_)->contains(cur_val_)) {
-                ++cur_seg_;
-                assert(cur_seg_ != frag_list ().end());
+            while (!(*fragment_)->contains(pos_)) {
+                ++fragment_;
+                assert(fragment_ != frag_list ().end());
             }
-            after_last_frag_ = (cur_val == (*cur_seg_)->end());
+            after_last_frag_ = (cur_val == (*fragment_)->end());
         }
     }
 
@@ -72,12 +70,12 @@ private:
 #if 1
         // dirty but fast and hopefully working way
         if (after_last_frag_ ^ other.after_last_frag_) {
-            skip_iterator this_val = (after_last_frag_ && !is_last_fragment() ? next_val() : cur_val_);
-            skip_iterator other_val = (other.after_last_frag_ && !other.is_last_fragment() ? other.next_val() : other.cur_val_);
+            skip_iterator this_val = (after_last_frag_ && !is_last_fragment() ? next_pos() : pos_);
+            skip_iterator other_val = (other.after_last_frag_ && !other.is_last_fragment() ? other.next_pos() : other.pos_);
             return this_val == other_val &&
             &frag_list () == &other.frag_list ();
         }
-        return cur_val_ == other.cur_val_ &&
+        return pos_ == other.pos_ &&
         &frag_list () == &other.frag_list ();
 #else
         // correct and slow
@@ -86,48 +84,48 @@ private:
         && skip_head_ == other.skip_head_
         && skip_tail_ == other.skip_tail_
         && cur_seg_ == other.cur_seg_
-        && cur_val_ == other.cur_val_
+        && pos_ == other.pos_
         ;
 #endif
     }
 
     void increment () {
-        assert (cur_seg_ != frag_list ().end ());
-        assert (cur_val_ != (*cur_seg_)->end () || !is_last_fragment ());
+        assert (fragment_ != frag_list ().end ());
+        assert (pos_ != (*fragment_)->end () || !is_last_fragment ());
 
         if (after_last_frag_) {
             assert (!is_last_fragment());
-            ++cur_seg_;
-            cur_val_ = (*cur_seg_)->begin ();
+            ++fragment_;
+            pos_ = (*fragment_)->begin ();
             after_last_frag_ = false;
         }
-        if (++cur_val_ == (*cur_seg_)->end ()) {
+        if (++pos_ == (*fragment_)->end ()) {
             if (is_last_fragment ()) {
                 after_last_frag_ = true;
             } else {
-                ++cur_seg_;
-                cur_val_ = (*cur_seg_)->begin ();
+                ++fragment_;
+                pos_ = (*fragment_)->begin ();
             }
         }
     }
 
     typename iterator_facade_::reference dereference () const {
         if (after_last_frag_) {
-            return *next_val();
+            return *next_pos();
         }
-        return *cur_val_;
+        return *pos_;
     }
 
     void decrement () {
         if (after_last_frag_) {
             after_last_frag_ = false;
             return;
-        } else if (cur_val_ == (*cur_seg_)->begin ()) {
-            assert (cur_seg_ == frag_list ().begin ());
-            --cur_seg_;
-            cur_val_ == (*cur_seg_)->end ();
+        } else if (pos_ == (*fragment_)->begin ()) {
+            assert (fragment_ == frag_list ().begin ());
+            --fragment_;
+            pos_ == (*fragment_)->end ();
         }
-        --cur_val_;
+        --pos_;
     }
 
     void advance (typename iterator_facade_::difference_type n) {
@@ -136,19 +134,19 @@ private:
                 increment (); --n;
             }
             while (n > 0) {
-                assert (cur_seg_ != frag_list ().end ());
-                assert (cur_val_ != (*cur_seg_)->end () || !is_last_fragment ());
-                if (n < ((*cur_seg_)->end () - cur_val_)) {
-                    cur_val_ += n;
+                assert (fragment_ != frag_list ().end ());
+                assert (pos_ != (*fragment_)->end () || !is_last_fragment ());
+                if (n < ((*fragment_)->end () - pos_)) {
+                    pos_ += n;
                     n = 0;
                 } else {
-                    n -= ((*cur_seg_)->end () - cur_val_);
+                    n -= ((*fragment_)->end () - pos_);
                     if (is_last_fragment ()) {
-                        cur_val_ = (*cur_seg_)->end ();
+                        pos_ = (*fragment_)->end ();
                         after_last_frag_ = true;
                     } else {
-                        ++cur_seg_;
-                        cur_val_ = (*cur_seg_)->begin ();
+                        ++fragment_;
+                        pos_ = (*fragment_)->begin ();
                     }
                 }
             }
@@ -158,14 +156,14 @@ private:
                 ++n;
             }
             while (n < 0) {
-                if (n < ((*cur_seg_)->begin () - cur_val_)) {
-                    assert (cur_seg_ != frag_list ().begin ());
-                    n -= ((*cur_seg_)->begin () - cur_val_);
-                    --cur_seg_;
-                    cur_val_ = (*cur_seg_)->end ();
-                    --cur_val_; ++n;
+                if (n < ((*fragment_)->begin () - pos_)) {
+                    assert (fragment_ != frag_list ().begin ());
+                    n -= ((*fragment_)->begin () - pos_);
+                    --fragment_;
+                    pos_ = (*fragment_)->end ();
+                    --pos_; ++n;
                 } else {
-                    cur_val_ += n;
+                    pos_ += n;
                     n = 0;
                 }
             }
@@ -175,40 +173,40 @@ private:
     typename iterator_facade_::difference_type distance_to (iterator const& other) const {
         assert (&frag_list () == &other.frag_list ());
         typename iterator_facade_::difference_type result = 0;
-        if (cur_seg_ == other.cur_seg_) {
-            return other.cur_val_ - cur_val_;
+        if (fragment_ == other.fragment_) {
+            return other.pos_ - pos_;
         }
         if (!is_last_fragment ()) {
-            result = (*cur_seg_)->end () - cur_val_;
-            fragment_iterator cur_seg = cur_seg_;
-            for (++cur_seg; cur_seg != other.cur_seg_ && cur_seg != frag_list ().end (); ++cur_seg) {
+            result = (*fragment_)->end () - pos_;
+            fragment_iterator cur_seg = fragment_;
+            for (++cur_seg; cur_seg != other.fragment_ && cur_seg != frag_list ().end (); ++cur_seg) {
                 result += (*cur_seg)->size();
             }
-            if (cur_seg == other.cur_seg_) {
-                result += (other.cur_val_ - (*cur_seg)->begin ());
+            if (cur_seg == other.fragment_) {
+                result += (other.pos_ - (*cur_seg)->begin ());
                 return result;
             }
         }
-        assert (cur_seg_ != frag_list ().begin ());
-        result = cur_val_ - (*cur_seg_)->begin ();
-        fragment_iterator cur_seg = cur_seg_;
-        for (--cur_seg; cur_seg != other.cur_seg_; --cur_seg) {
+        assert (fragment_ != frag_list ().begin ());
+        result = pos_ - (*fragment_)->begin ();
+        fragment_iterator cur_seg = fragment_;
+        for (--cur_seg; cur_seg != other.fragment_; --cur_seg) {
             result += (*cur_seg)->size();
         }
-        assert (cur_seg == other.cur_seg_);
-        result += ((*cur_seg)->end () - other.cur_val_);
+        assert (cur_seg == other.fragment_);
+        result += ((*cur_seg)->end () - other.pos_);
         return -result;
     }
 
-    skip_iterator next_val() const {
+    skip_iterator next_pos() const {
         assert (!is_last_fragment());
-        fragment_iterator i_seg = cur_seg_;
-        ++i_seg;
-        return (*i_seg)->begin ();
+        fragment_iterator i = fragment_;
+        ++i;
+        return (*i)->begin ();
     }
 
     bool is_last_fragment () const {
-        return &(*cur_seg_) == &(frag_list ().back ());
+        return &(*fragment_) == &(frag_list ().back ());
     }
 
     template <typename> friend class basic_segment;
@@ -217,8 +215,8 @@ private:
 
     fragment_list const* fragment_list_;
 
-    fragment_iterator cur_seg_;
-    skip_iterator cur_val_;
+    fragment_iterator fragment_;
+    skip_iterator pos_;
     bool after_last_frag_;
 };
 
