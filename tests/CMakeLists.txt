@@ -22,21 +22,43 @@ ExternalProject_Add(
     LOG_CONFIGURE ON
     LOG_BUILD ON)
 
-# Specify include dir
 ExternalProject_Get_Property(googletest source_dir)
 include_directories(${source_dir}/include)
+
+ExternalProject_Get_Property(googletest binary_dir)
+set( GTEST_LIBRARIES ${binary_dir}/${CMAKE_FIND_LIBRARY_PREFIXES}gtest.a )
+
+
+# Add gtest
+ExternalProject_Add(
+    googlemock
+    SVN_REPOSITORY http://googlemock.googlecode.com/svn/trunk/
+    #SVN_REVISION -r 660
+    TIMEOUT 10
+    # Disable install step
+    INSTALL_COMMAND ""
+    # Wrap download, configure and build steps in a script to log output
+    LOG_DOWNLOAD ON
+    LOG_CONFIGURE ON
+    LOG_BUILD ON)
+
+ExternalProject_Get_Property(googlemock source_dir)
+include_directories(${source_dir}/include)
+
+ExternalProject_Get_Property(googlemock binary_dir)
+set( GMOCK_LIBRARIES ${binary_dir}/${CMAKE_FIND_LIBRARY_PREFIXES}gmock.a )
+
 
 # Add test executable target
 add_executable(main-test main.cc)
 
 # Create dependency of MainTest on googletest
-add_dependencies(main-test googletest)
+add_dependencies(main-test googletest googlemock)
 
-# Specify MainTest's link libraries
-ExternalProject_Get_Property(googletest binary_dir)
 target_link_libraries(
     main-test
-    ${binary_dir}/${CMAKE_FIND_LIBRARY_PREFIXES}gtest.a
+    ${GTEST_LIBRARIES}
+    ${GMOCK_LIBRARIES}
     -pthread)
 
 #include_directories(.)
