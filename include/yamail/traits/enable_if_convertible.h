@@ -5,7 +5,7 @@
 
 #include <yamail/traits/enable_type.h>
 
-#if 1
+#if 0
 #include <type_traits>
 #else
 #include <boost/utility/enable_if.hpp>
@@ -17,9 +17,16 @@
 YAMAIL_NS_BEGIN
 YAMAIL_NS_TRAITS_BEGIN
 
-#if 1
+#if 0
 template <typename From, typename To, typename Ret = detail::enable_type>
 struct enable_if_convertible : std::enable_if<
+      std::is_same<From,To>::value || std::is_convertible<From, To>::value
+    , Ret
+  >
+{
+};
+template <typename From, typename To, typename Ret = detail::enable_type>
+struct disable_if_convertible : std::disable_if<
       std::is_same<From,To>::value || std::is_convertible<From, To>::value
     , Ret
   >
@@ -33,7 +40,17 @@ struct enable_if_convertible : boost::enable_if<
         , boost::is_convertible<From, To>
       >
     , Ret
-  >::type
+  >
+{
+};
+template <typename From, typename To, typename Ret = detail::enable_type>
+struct disable_if_convertible : boost::disable_if<
+      boost::mpl::or_<
+          boost::is_same<From,To>
+        , boost::is_convertible<From, To>
+      >
+    , Ret
+  >
 {
 };
 #endif

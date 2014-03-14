@@ -8,7 +8,7 @@ YAMAIL_NS_TRAITS_BEGIN
 
 namespace detail {
 
-struct enable_type;
+struct enable_type{};
 
 }
 
