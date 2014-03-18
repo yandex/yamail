@@ -63,11 +63,7 @@ target_link_libraries(${TARGET_LIBRARY}
 )
 set_target_properties(${TARGET_LIBRARY} PROPERTIES SOVERSION 0 VERSION 0.0)
 
-if(CMAKE_BUILD_TEST)
-    enable_testing()
-    add_subdirectory(tests)
-endif(CMAKE_BUILD_TEST)
-
+add_subdirectory(tests)
 
 # CREATE PKGCONFIG FILES
 # we use the same files like ./configure, so we have to set its vars

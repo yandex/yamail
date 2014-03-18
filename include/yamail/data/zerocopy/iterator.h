@@ -121,9 +121,9 @@ private:
             after_last_frag_ = false;
             return;
         } else if (pos_ == (*fragment_)->begin ()) {
-            assert (fragment_ == frag_list ().begin ());
+            assert (fragment_ != frag_list ().begin ());
             --fragment_;
-            pos_ == (*fragment_)->end ();
+            pos_ = (*fragment_)->end ();
         }
         --pos_;
     }
