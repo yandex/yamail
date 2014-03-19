@@ -11,7 +11,7 @@
 
 namespace {
 using namespace testing;
-using namespace yamail_100000::data::zerocopy::detail;
+using namespace yamail::data::zerocopy::detail;
 
 struct FragmentTest : public Test {
     FragmentTest() : allocator(allocatorMock), buffSize(buffSizeDefault) {

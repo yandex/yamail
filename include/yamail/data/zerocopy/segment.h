@@ -49,10 +49,10 @@ public:
     }
 
     const_iterator begin () const {
-        return const_iterator(fragment_list_, head());
+        return const_iterator(fragment_list_, head(), const_iterator::begin_helper());
     }
     const_iterator end () const {
-        return const_iterator(fragment_list_, tail(), true);
+        return const_iterator(fragment_list_, tail());
     }
 
     basic_segment& append(const basic_segment& x) {
