@@ -12,6 +12,7 @@
 #include <boost/mpl/or.hpp>
 #include <boost/type_traits/is_same.hpp>
 #include <boost/type_traits/is_convertible.hpp>
+#include <boost/type_traits/remove_const.hpp>
 #endif
 
 YAMAIL_NS_BEGIN
