@@ -131,28 +131,7 @@ public:
     }
 
     size_type size () const {
-        if (fragment_list_.empty ()) {
-            return 0;
-        }
-        typedef typename fragment_list::const_iterator Iter;
-        const Iter begin = fragment_list_.begin();
-        const Iter end = fragment_list_.end ();
-        Iter i = begin;
-        Iter next = begin;
-        size_type result = 0;
-        for (++next; i != end; ++i) {
-            if (i == begin || next == end) {
-                const fragment_iterator data_begin(i == begin ? head() : (*i)->begin());
-                const fragment_iterator data_end(next == end ? tail() : (*i)->end());
-                result += std::size_t(std::distance(data_begin, data_end));
-            } else {
-                result += (*i)->size();
-            }
-            if (next != end) {
-                ++next;
-            }
-        }
-        return result;
+        return size_type(std::distance(begin(), end()));
     }
 
     void swap (basic_segment& x) {
