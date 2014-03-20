@@ -78,6 +78,11 @@ TEST_F(SegmentTest, constructor_default_setEmptySegment) {
     ASSERT_TRUE( s.begin() == s.end() );
 }
 
+TEST_F(SegmentTest, empty_withDefaultCtedObject_returnsTrue) {
+    Segment s;
+    ASSERT_TRUE( s.empty() );
+}
+
 TEST_F(SegmentTest, constructor_withRange_setBeginIteratorAtFirstSegmentBegin) {
     Segment s(at(0), at(2), begin(0), end(1));
     ASSERT_EQ( &(*(s.begin())), begin(0) );

@@ -58,7 +58,7 @@ private:
 
     template <typename T>
     T end_iter() const {
-        if(fragment_list_.empty()) {
+        if(empty()) {
             return begin_iter<T>();
         }
         return T(fragment_list_, tail(), --(fragment_list_.end()));
@@ -91,11 +91,11 @@ public:
     }
 
     basic_segment& append(const basic_segment& x) {
-        if (x.head() == x.tail()) {
+        if (x.empty()) {
             return *this;
         }
 
-        if (fragment_list_.empty()) {
+        if (empty()) {
             return *this = x;
         }
 
@@ -132,6 +132,10 @@ public:
 
     size_type size () const {
         return size_type(std::distance(begin(), end()));
+    }
+
+    bool empty() const {
+        return head() == tail();
     }
 
     void swap (basic_segment& x) {
