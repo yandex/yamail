@@ -6,6 +6,8 @@ enable_testing()
 #set(LIBS ${LIBS} ${CHECK_LIBRARIES})
 #include_directories(${CHECK_INCLUDE_DIRS})
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unnamed-type-template-args")
+
 # Set default ExternalProject root directory
 set_directory_properties(PROPERTIES EP_PREFIX ${CMAKE_BINARY_DIR}/ThirdParty)
 
