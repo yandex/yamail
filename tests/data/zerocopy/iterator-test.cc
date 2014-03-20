@@ -58,7 +58,7 @@ struct IteratorTest : public Test {
 };
 
 TEST_F(IteratorTest, constructor_withFirstFragmentBeginPosition_setsPositionToFirstFragmentBegin) {
-    Iterator i(fragments, begin(), Iterator::begin_helper());
+    Iterator i(fragments, begin(), fragments.begin());
     EXPECT_EQ(begin(), &(*i));
 }
 

@@ -45,12 +45,10 @@ public:
 
     iterator () : fragment_list_(0), after_last_frag_ (false) {}
 
-    struct begin_helper {};
-
     iterator (fragment_list const& fragments, skip_iterator const& pos,
-                const begin_helper & )
+            fragment_iterator fragment )
     : fragment_list_(&fragments),
-      fragment_(frag_list().begin()),
+      fragment_(fragment),
       pos_(pos),
       after_last_frag_(frag_list().empty() || pos_at_end()) {
     }

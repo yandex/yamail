@@ -50,11 +50,26 @@ public:
                 !(*--(seq.end()))->contains(tail)) ));
     }
 
+private:
+    template <typename T>
+    T begin_iter() const {
+        return T(fragment_list_, head(), fragment_list_.begin());
+    }
+
+    template <typename T>
+    T end_iter() const {
+        if(fragment_list_.empty()) {
+            return begin_iter<T>();
+        }
+        return T(fragment_list_, tail(), --(fragment_list_.end()));
+    }
+public:
+
     const_iterator begin () const {
-        return const_iterator(fragment_list_, head(), typename const_iterator::begin_helper());
+        return begin_iter<const_iterator>();
     }
     const_iterator end () const {
-        return const_iterator(fragment_list_, tail());
+        return end_iter<const_iterator>();
     }
     const_iterator cbegin () const {
         return begin();
@@ -64,10 +79,10 @@ public:
     }
 
     iterator begin () {
-        return iterator(fragment_list_, head(), typename iterator::begin_helper());
+        return begin_iter<iterator>();
     }
     iterator end () {
-        return iterator(fragment_list_, tail());
+        return end_iter<iterator>();
     }
 
     fragment_ptr wrap_fragment(fragment_iterator data, std::size_t size, fragment_ptr raii) const {
