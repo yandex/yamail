@@ -4,13 +4,13 @@
 %define _rpmdir		.
 
 Name:		libyamail
-Version:	%{yandex_mail_version}
-Release:	%{yandex_mail_release}
+Version:	1.0
+Release:	1
 
 Summary:	yamail library
 License:	none
 Group:		System Environment/Libraries
-Packager:   none@none.ru  
+Packager:   	none@none.ru  
 Distribution:   Red Hat Enterprise Linux
 
 Requires:	boost >= 1.43.0
