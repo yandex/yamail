@@ -32,8 +32,7 @@
 #define PRINT_DEBUG(os) print_debug(os, __LINE__)
 #endif
 
-namespace yplatform {
-namespace zerocopy {
+YAMAIL_FQNS_DATA_ZC_BEGIN
 
 namespace asio = ::boost::asio;
 
@@ -47,7 +46,9 @@ template<
         , typename Alloc = std::allocator<void> >
 class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
         boost::noncopyable {
+public:
     typedef CharT char_type;
+private:
     typedef Traits traits_type;
     typedef FragmentAlloc fragment_allocator_type;
     typedef Alloc allocator_type;
@@ -88,6 +89,8 @@ class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
 
     fragment_list_const_iterator put_active_; // active 'put' fragment - this is where
                                               // pbase, pptr, epptr refers to
+    typedef typename allocator_type::template rebind<fragment_type>::other AF;
+    AF af;
     // utility functions
 
     // returns the occupied space by of fragment pointed by iterator 'iter'
@@ -95,19 +98,19 @@ class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
         return (*iter)->size();
     }
 
-    std::size_t const& inter_size() const {
+    std::size_t inter_size() const {
         return inter_size_;
     }
 
-    std::size_t const& tail_size() const {
+    std::size_t tail_size() const {
         return tail_size_;
     }
 
     std::size_t put_size() const {
-        return tail_size() + (this->epptr() - this->pptr());
+        return tail_size() + std::size_t(this->epptr() - this->pptr());
     }
 
-    std::size_t const& total_size() const {
+    std::size_t total_size() const {
         return total_size_;
     }
 
@@ -129,6 +132,12 @@ class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
     bool points_to_last_fragment(FragmentsIterator const& iter) const {
         assert(!fragments_.empty());
         return *fragments_.rbegin() == *iter;
+    }
+
+    void add_fragment( std::size_t size ) {
+        fragments_.push_back(
+                boost::allocate_shared<fragment_type>(af, size, fallocator_));
+        tail_size_ += size;
     }
 
 #if YDEBUG
@@ -227,28 +236,33 @@ public:
         return allocator_;
     }
 
-    basic_streambuf(
-          std::size_t min_fragmentation = 512
-        , std::size_t max_fragmentation = 1024 * 1024
-        , std::size_t start_fragments = 0    // defaults to 1
-        , std::size_t start_fragment_len = 0 // defaults to fragmentation
-        , std::size_t max_size = (std::numeric_limits<std::size_t>::max)()
-        , fragment_allocator_type const& fallocator = fragment_allocator_type()
-        , allocator_type const& allocator = allocator_type()
-    ) : size_(0)
-      , inter_size_(0)
-      , tail_size_(0)
-      , total_size_(0)
-      , min_fragmentation_(min_fragmentation ? min_fragmentation : 512)
-      , max_fragmentation_(
-          std::max(min_fragmentation_, max_fragmentation
-            ? max_fragmentation 
-            : std::max<std::size_t>(min_fragmentation_, 1024 * 1024))
-        )
-      , fallocator_(fallocator)
-      , allocator_(allocator)
-      , fragments_(allocator_) 
-    {
+    static const std::size_t default_max_size;
+    static const std::size_t default_max_fragmentation;
+    static const std::size_t default_min_fragmentation;
+
+    std::size_t constarin_max_fragmentation( std::size_t v ) const {
+        if (!v) {
+            v = default_max_fragmentation;
+        }
+        return std::max(min_fragmentation_, v);
+    }
+
+    std::size_t constarin_min_fragmentation( std::size_t v ) const {
+        return v ? v : default_min_fragmentation;
+    }
+
+    basic_streambuf(std::size_t min_fragmentation = default_min_fragmentation,
+            std::size_t max_fragmentation = default_max_fragmentation,
+            std::size_t start_fragments = 0,    // defaults to 1
+            std::size_t start_fragment_len = 0, // defaults to fragmentation
+            std::size_t max_size = default_max_size,
+            fragment_allocator_type const& fallocator = fragment_allocator_type(),
+            allocator_type const& allocator = allocator_type())
+    : size_(0), inter_size_(0), tail_size_(0), total_size_(0),
+            min_fragmentation_( constarin_min_fragmentation(min_fragmentation) ),
+            max_fragmentation_( constarin_max_fragmentation(max_fragmentation) ),
+            fallocator_(fallocator), allocator_(allocator), fragments_(allocator_),
+            af(allocator_) {
         if (!start_fragment_len) {
             start_fragment_len = min_fragmentation_;
         }
@@ -258,22 +272,13 @@ public:
         }
 
         if (!max_size) {
-            max_size = (std::numeric_limits<std::size_t>::max)();
+            max_size = default_max_size;
         }
 
         max_size_ = max_size;
 
-        typedef typename allocator_type::template rebind<fragment_type>::other AF;
-
-        AF af(allocator_);
-
         while (start_fragments--) {
-          fragments_.push_back(
-              boost::allocate_shared<fragment_type> (af, 
-                start_fragment_len, fallocator_)
-          );
-
-          tail_size_ += start_fragment_len;
+            add_fragment(start_fragment_len);
         }
 
         total_size_ = put_size();
@@ -284,36 +289,19 @@ public:
         put_active_ = fragments_.begin();
 
         // set streambuf pointers
-        std::streambuf::setg((*get_active())->begin(), (*get_active())->begin(),
-                (*get_active())->begin());
-#if defined (YDEBUG)
-        std::cerr << "setg: "
-        << (void*) this->eback () << ", "
-        << (void*) this->gptr () << ", "
-        << (void*) this->egptr ()
-        << "\n";
-#endif
+        const typename fragment_type::iterator get_begin = (*get_active())->begin();
+        std::streambuf::setg(get_begin, get_begin, get_begin);
 
         std::streambuf::setp((*put_active())->begin(), (*put_active())->end());
-        tail_size_ -= (this->epptr() - this->pbase());
-    }
-
-    template<typename T>
-    typename iteratorT<T>::type beginT() const {
-        assert(!fragments_.empty());
-        return typename iteratorT<T>::type(fragments_, this->gptr());
-    }
-
-    template<typename T>
-    typename iteratorT<T>::type endT() const {
-        return typename iteratorT<T>::type(fragments_, this->pptr(), true);
+        tail_size_ -= std::size_t(this->epptr() - this->pbase());
     }
 
     iterator begin() const {
-        return beginT<char_type>();
+        return iterator(fragments_, this->gptr(), get_active());
     }
+
     iterator end() const {
-        return endT<char_type>();
+        return iterator(fragments_, this->pptr(), put_active());
     }
 
     segment_type detach(iterator const& split_point) {
@@ -324,47 +312,47 @@ public:
 
         fragment_list_const_iterator iter = get_active();
 
-        while (iter != split_point.cur_seg_) {
+        while (iter != split_point.fragment_) {
             assert(iter != fragments_.end());
             ++iter;
         }
 
         segment_type tmp(boost::make_iterator_range(get_active(), ++iter),
-                this->gptr(), split_point.cur_val_);
+                this->gptr(), split_point.pos_);
 
         // consume first fragment
         if (get_active() == put_active()) {
-            assert(split_point.cur_seg_ == get_active());
-            assert(split_point.cur_val_ >= this->gptr());
-            assert(split_point.cur_val_ <= this->pptr());
+            assert(split_point.fragment_ == get_active());
+            assert(split_point.pos_ >= this->gptr());
+            assert(split_point.pos_ <= this->pptr());
 
-            if (split_point.cur_val_ > this->pbase()) {
+            if (split_point.pos_ > this->pbase()) {
                 compact_put_area();
             }
 
             inter_size_ = 0;
-            std::streambuf::setg(const_cast<char_type*>(split_point.cur_val_),
-                    const_cast<char_type*>(split_point.cur_val_),
+            std::streambuf::setg(const_cast<char_type*>(split_point.pos_),
+                    const_cast<char_type*>(split_point.pos_),
                     this->pbase());
 
             return tmp;
         }
 
-        if (split_point.cur_seg_ == get_active()
-                && (*get_active())->contains(split_point.cur_val_)) {
+        if (split_point.fragment_ == get_active()
+                && (*get_active())->contains(split_point.pos_)) {
 #if defined (YDEBUG)
             std::cerr << "DETACH_1: intersize: " <<
             inter_size_ << " -= " <<
             ((*get_active ())->end () - this->egptr ()) << "\n";
 #endif
 
-            assert(split_point.cur_val_ >= this->gptr());
+            assert(split_point.pos_ >= this->gptr());
 
             inter_size_ -= ((*get_active())->end() - this->egptr());
 
             // extend get ptrs to the end of fragment
-            std::streambuf::setg(const_cast<char_type*>(split_point.cur_val_),
-                    const_cast<char_type*>(split_point.cur_val_),
+            std::streambuf::setg(const_cast<char_type*>(split_point.pos_),
+                    const_cast<char_type*>(split_point.pos_),
                     (*get_active())->end());
 #if defined(YDEBUG)
             size ();
@@ -378,22 +366,22 @@ public:
         fragments_.pop_front();
 
         // remove everithing till cur_seg
-        while (get_active() != split_point.cur_seg_) {
+        while (get_active() != split_point.fragment_) {
             assert(get_active() != put_active());
             inter_size_ -= (*get_active())->size();
             fragments_.pop_front();
         }
 
         if (get_active() == put_active()) {
-            assert(split_point.cur_val_ <= this->pptr());
+            assert(split_point.pos_ <= this->pptr());
 
-            if (split_point.cur_val_ > this->pbase()) {
+            if (split_point.pos_ > this->pbase()) {
                 compact_put_area();
             }
 
             inter_size_ = 0;
-            std::streambuf::setg(const_cast<char_type*>(split_point.cur_val_),
-                    const_cast<char_type*>(split_point.cur_val_),
+            std::streambuf::setg(const_cast<char_type*>(split_point.pos_),
+                    const_cast<char_type*>(split_point.pos_),
                     this->pbase());
 
         } else {
@@ -402,15 +390,15 @@ public:
             inter_size_ << " -= " <<
             (*get_active())->size() << "\n";
 #endif
-            assert(split_point.cur_val_ >= (*get_active())->begin());
-            assert(split_point.cur_val_ <= (*get_active())->end());
+            assert(split_point.pos_ >= (*get_active())->begin());
+            assert(split_point.pos_ <= (*get_active())->end());
             assert(inter_size_ >= (*get_active())->size());
 
             inter_size_ -= (*get_active())->size();
 
             // extend get ptrs to the end of fragment
-            std::streambuf::setg(const_cast<char_type*>(split_point.cur_val_),
-                    const_cast<char_type*>(split_point.cur_val_),
+            std::streambuf::setg(const_cast<char_type*>(split_point.pos_),
+                    const_cast<char_type*>(split_point.pos_),
                     (*get_active())->end());
         }
 #if defined(YDEBUG)
@@ -591,7 +579,7 @@ public:
 #if defined(YDEBUG)
         std::cerr << "COMMIT_1, putsize=" << put_size () << "\n";
 #endif
-        n -= (this->epptr() - this->pptr());
+        n -= std::size_t(this->epptr() - this->pptr());
 
         // should always be zero
         // tail_size_ -= ((*put_active ())->end () - this->epptr ());
@@ -602,7 +590,7 @@ public:
         inter_size_ << " += " <<
         ((*put_active ())->end () - this->pbase ()) << "\n";
 #endif
-        inter_size_ += ((*put_active())->end() - this->pbase());
+        inter_size_ += std::size_t((*put_active())->end() - this->pbase());
         ++put_active_;
         assert(put_active_ != fragments_.end());
 
@@ -659,13 +647,6 @@ protected:
 #if defined(YDEBUG)
         std::cerr << "RESERVE (" << n << ") - 0\n";
 #endif
-        // add fragments at end
-        typedef typename allocator_type::template rebind<fragment_type>::other AF;
-        AF af(allocator_);
-
-#if defined(YDEBUG)
-        std::cerr << "RESERVE (" << n << ") - 1\n";
-#endif
         while (put_size() < n) {
             // calculate fragment size
             std::size_t needed_size = n - put_size();
@@ -679,11 +660,7 @@ protected:
             needed_size << " bytes, will allocate " << sz << "\n";
 #endif
 
-            // add created fragment to list
-            fragments_.push_back(boost::allocate_shared<fragment_type>(af, sz, fallocator_));
-
-            // increment put_size
-            tail_size_ += sz;
+            add_fragment(sz);
 
         }
 
@@ -706,7 +683,7 @@ protected:
         inter_size_ << " += " <<
         (this->pptr () - this->pbase ()) << "\n";
 #endif
-        inter_size_ += (this->pptr() - this->pbase());
+        inter_size_ += std::size_t(this->pptr() - this->pbase());
 
         // move pbase pointer to pptr
         std::streambuf::setp(this->pptr(), this->epptr());
@@ -729,7 +706,7 @@ protected:
         inter_size_ << " -= " <<
         (this->pbase () - this->egptr ()) << "\n";
 #endif
-        inter_size_ -= (this->pbase() - this->egptr());
+        inter_size_ -= std::size_t(this->pbase() - this->egptr());
 
         // extend egptr pointer to pbase
         std::streambuf::setg(this->eback(), this->gptr(), this->pbase());
@@ -750,7 +727,7 @@ protected:
         std::streamsize size = n;
 
         // allocate space if not already
-        reserve(size);
+        reserve(std::size_t(size));
 
         while (size > 0) {
             if (this->epptr() == this->pptr()) {
@@ -761,12 +738,12 @@ protected:
             std::streamsize frag = std::min<std::streamsize>(
                     this->epptr() - this->pptr(), size);
 
-            std::memcpy(this->pptr(), s, frag);
+            std::memcpy(this->pptr(), s, std::size_t(frag));
 
             s += frag;
             size -= frag;
 
-            commit(frag);
+            commit(std::size_t(frag));
         }
 
 #if defined(YDEBUG)
@@ -802,11 +779,11 @@ protected:
         inter_size_ << " += " <<
         ((*put_active ())->end () - this->pbase ()) << "\n";
 #endif
-        inter_size_ += ((*put_active())->end() - this->pbase());
+        inter_size_ += std::size_t((*put_active())->end() - this->pbase());
         ++put_active_;
 
         std::streambuf::setp((*put_active())->begin(), (*put_active())->end());
-        tail_size_ -= (this->epptr() - this->pbase());
+        tail_size_ -= std::size_t(this->epptr() - this->pbase());
 #if defined(YDEBUG)
         std::cerr << "PROMOTE_PUT () - OK\n";
         PRINT_DEBUG (std::cerr);
@@ -821,7 +798,7 @@ protected:
         std::streamsize ret = 0;
         while (n > 0) {
             std::streamsize sz = std::min(n, this->egptr() - this->gptr());
-            std::memcpy(s, this->gptr(), sz);
+            std::memcpy(s, this->gptr(), std::size_t(sz));
             s += sz;
             ret += sz;
             n -= sz;
@@ -866,7 +843,7 @@ protected:
             inter_size_ << " -= " <<
             ((*get_active ())->end () - this->egptr ()) << "\n";
 #endif
-            inter_size_ -= ((*get_active())->end() - this->egptr());
+            inter_size_ -= std::size_t((*get_active())->end() - this->egptr());
 
             // extend egptr pointer to end of fragment
             std::streambuf::setg(this->eback(), this->gptr(),
@@ -894,7 +871,7 @@ protected:
             inter_size_ << " -= " <<
             (eptr - (*get_active ())->begin ()) << "\n";
 #endif
-            inter_size_ -= (eptr - (*get_active())->begin());
+            inter_size_ -= std::size_t(eptr - (*get_active())->begin());
             std::streambuf::setg((*get_active())->begin(),
                     (*get_active())->begin(), eptr);
         }
@@ -921,8 +898,17 @@ protected:
     }
 };
 
+template<typename C, typename T, typename F, typename A>
+const std::size_t basic_streambuf<C, T, F, A>::default_max_size = (std::numeric_limits<std::size_t>::max)();
+
+template<typename C, typename T, typename F, typename A>
+const std::size_t basic_streambuf<C, T, F, A>::default_max_fragmentation = 1024 * 1024;
+
+template<typename C, typename T, typename F, typename A>
+const std::size_t basic_streambuf<C, T, F, A>::default_min_fragmentation = 512;
+
 typedef basic_streambuf<> streambuf;
 
-} // namespace zerocopy
-} // namespace yplatform
+YAMAIL_FQNS_DATA_ZC_END
+
 #endif // _YPLATFORM_ZEROCOPY_STREAMBUF_H_
