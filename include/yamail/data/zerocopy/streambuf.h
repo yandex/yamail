@@ -106,8 +106,15 @@ private:
         return tail_size_;
     }
 
+    /**
+     * Continuous put size within current fragment
+     */
+    std::size_t fragment_put_size() const {
+        return std::size_t(this->epptr() - this->pptr());
+    }
+
     std::size_t put_size() const {
-        return tail_size() + std::size_t(this->epptr() - this->pptr());
+        return tail_size() + fragment_put_size();
     }
 
     std::size_t total_size() const {
@@ -565,7 +572,7 @@ public:
         assert(n <= put_size() && "not enough space in put area");
 
         // the current [pbase-epptr] area is large enough
-        if (static_cast<std::size_t>(this->epptr() - this->pptr()) >= n) {
+        if (fragment_put_size() >= n) {
             this->pbump(static_cast<int>(n));
 #if defined(YDEBUG)
             std::cerr << "COMMIT () - OK, put_size=" << put_size ()
@@ -579,7 +586,7 @@ public:
 #if defined(YDEBUG)
         std::cerr << "COMMIT_1, putsize=" << put_size () << "\n";
 #endif
-        n -= std::size_t(this->epptr() - this->pptr());
+        n -= fragment_put_size();
 
         // should always be zero
         // tail_size_ -= ((*put_active ())->end () - this->epptr ());
@@ -730,20 +737,19 @@ protected:
         reserve(std::size_t(size));
 
         while (size > 0) {
-            if (this->epptr() == this->pptr()) {
+            if (fragment_put_size() == 0) {
                 // advance put area to next fragment
                 promote_put();
             }
 
-            std::streamsize frag = std::min<std::streamsize>(
-                    this->epptr() - this->pptr(), size);
+            std::size_t frag = std::min(fragment_put_size(), std::size_t(size));
 
-            std::memcpy(this->pptr(), s, std::size_t(frag));
+            std::memcpy(this->pptr(), s, frag);
 
             s += frag;
             size -= frag;
 
-            commit(std::size_t(frag));
+            commit(frag);
         }
 
 #if defined(YDEBUG)
@@ -764,7 +770,7 @@ protected:
         std::cerr << "PROMOTE_PUT ()\n";
 #endif
         assert(this->epptr() == (*put_active())->end());
-        assert(this->epptr() == this->pptr());
+        assert(fragment_put_size() == 0);
 
         // make sure it will be at least one free fragment
         // after put_active
