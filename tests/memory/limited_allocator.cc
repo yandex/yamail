@@ -9,6 +9,7 @@
 #include <boost/lexical_cast.hpp>
 #include <gtest/gtest.h>
 
+
 struct byte_100
 {
     char data[100];
@@ -408,7 +409,7 @@ TEST(limited_allocator, limiter)
     ASSERT_TRUE(test_return_memory(fuzzy_limiter(make_mb(1))));
 }
 
-TEST(limited_allocator, composite_limiter)
+TEST(limited_allocator, composite_fuzzy_limiter)
 {
     {
         fuzzy_limiter global(make_mb(10), "global"); // will exhausted
@@ -424,7 +425,10 @@ TEST(limited_allocator, composite_limiter)
         composite.add(groups[0]); // less
         ASSERT_TRUE((test_return_memory<composite_fuzzy_limiter>(composite)));
     }
+}
 
+TEST(limited_allocator, composite_strict_limiter)
+{
     {
         basic_limiter global(make_mb(10), "global"); // will exhausted
         std::vector<basic_limiter> groups;
@@ -441,5 +445,4 @@ TEST(limited_allocator, composite_limiter)
 
     }
 }
-
 

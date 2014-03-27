@@ -6,7 +6,7 @@ YAMAIL_FQNS_MEMORY_BEGIN
  * limiter
  */
 
-limiter::limiter(boost::shared_ptr<impl> impl):impl_(impl)
+limiter::limiter(compat::shared_ptr<impl> impl):impl_(impl)
 {}
 
 void limiter::acquire(size_t n) throw(limiter_exhausted)
@@ -24,12 +24,17 @@ size_t limiter::limit() const
     return impl_->limit();
 }
 
+size_t limiter::available() const
+{
+    return impl_->available();
+}
+
 const std::string& limiter::name() const
 {
     return impl_->name();
 }
 
-boost::shared_ptr<limiter::impl> limiter::get_impl()
+compat::shared_ptr<limiter::impl>& limiter::get_impl()
 {
     return impl_;
 }
@@ -40,7 +45,9 @@ limiter::impl::impl(size_t limit, const std::string& name)
 {}
 
 limiter::impl::~impl()
-{}
+{
+    if(cleanup_hook_) cleanup_hook_();
+}
 
 size_t limiter::impl::limit() const
 {
@@ -52,6 +59,11 @@ const std::string& limiter::impl::name() const
     return name_;
 }
 
+void limiter::impl::cleanup(boost::function<void()> hook)
+{
+    cleanup_hook_ = hook;
+}
+
 void limiter::impl::throw_exhausted() const throw(limiter_exhausted)
 {
     throw limiter_exhausted(name());
@@ -61,8 +73,14 @@ void limiter::impl::throw_exhausted() const throw(limiter_exhausted)
  * basic_limiter
  */
 
+basic_limiter::basic_limiter(boost::shared_ptr<impl> impl)
+    :limiter(impl)
+{
+
+}
+
 basic_limiter::basic_limiter(size_t limit, const std::string& name)
-    :limiter(boost::shared_ptr<impl>(new impl(limit, name)))
+    :limiter(compat::make_shared<impl>(limit, name))
 {}
 
 basic_limiter::impl::impl(size_t limit, const std::string& name)
@@ -83,12 +101,21 @@ void basic_limiter::impl::release(size_t n) _noexcept
     available_ += n;
 }
 
+size_t basic_limiter::impl::available() const
+{
+    return available_;
+}
+
 /* ****************************************************************************
  * strict_limiter
  */
 
+strict_limiter::strict_limiter(boost::shared_ptr<impl> impl)
+    :limiter(impl)
+{}
+
 strict_limiter::strict_limiter(size_t limit, const std::string& name)
-    :limiter(boost::shared_ptr<impl>(new impl(limit, name)))
+    :limiter(compat::make_shared<impl>(limit, name))
 {}
 
 strict_limiter::impl::impl(size_t limit, const std::string& name)
@@ -111,12 +138,23 @@ void strict_limiter::impl::release(size_t n) _noexcept
     available_ += n;
 }
 
+size_t strict_limiter::impl::available() const
+{
+    boost::mutex::scoped_lock lock(mtx_);
+    return available_;
+}
+
+
 /* ****************************************************************************
  * fuzzy_limiter
  */
 
+fuzzy_limiter::fuzzy_limiter(boost::shared_ptr<impl> impl)
+    :limiter(impl)
+{}
+
 fuzzy_limiter::fuzzy_limiter(size_t limit, const std::string& name)
-    :limiter(boost::shared_ptr<impl>(new impl(limit, name)))
+    :limiter(compat::make_shared<impl>(limit, name))
 {}
 
 fuzzy_limiter::impl::impl(size_t limit, const std::string& name)
@@ -138,118 +176,43 @@ void fuzzy_limiter::impl::release(size_t n) _noexcept
     available_.fetch_add(n);
 }
 
-/* ****************************************************************************
- * composite_fuzzy_limiter
- */
-
-composite_fuzzy_limiter::composite_fuzzy_limiter(const std::string& name)
-    : limiter(boost::shared_ptr<impl>(new impl(name)))
-{ }
-
-void composite_fuzzy_limiter::add(const fuzzy_limiter& limiter)
+size_t fuzzy_limiter::impl::available() const
 {
-    dynamic_cast<impl*>(get_impl().get())->add(limiter);
-}
-
-composite_fuzzy_limiter::impl::impl(const std::string& name):
-    limiter::impl(0, name)
-{
-}
-
-void composite_fuzzy_limiter::impl::add(const fuzzy_limiter& limiter)
-{
-    storage_.push_back(limiter);
-}
-
-void composite_fuzzy_limiter::impl::acquire(size_t n) throw(limiter_exhausted)
-{
-    storage_t::iterator it = storage_.begin();
-    storage_t::iterator end = storage_.end();
-    try
-    {
-        for(; it != end; it++)
-        {
-            (*it).acquire(n);
-        }
-    }
-    catch(const limiter_exhausted& ex)
-    {
-        storage_t::iterator end = it;
-        storage_t::iterator it = storage_.begin();
-        for(; it != end; it++)
-        (*it).release(n);
-
-        throw limiter_exhausted(name() + "/" + ex.what());
-    }
-}
-
-void composite_fuzzy_limiter::impl::release(size_t n) _noexcept
-{
-    storage_t::iterator it = storage_.begin();
-    storage_t::iterator end = storage_.end();
-    for(; it != end; it++)
-    (*it).release(n);
-}
-
-composite_strict_limiter::composite_strict_limiter(const std::string& name)
-    : limiter(boost::shared_ptr<impl>(new impl(name)))
-{
+    return available_;
 }
 
 /* ****************************************************************************
  * composite_strict_limiter
  */
-
 boost::mutex composite_strict_limiter::impl::global_composite_limiter_mutex_;
 
-void composite_strict_limiter::add(const basic_limiter& limiter)
+composite_strict_limiter::composite_strict_limiter(const std::string& name)
+    :base_t(compat::make_shared<impl>(name))
 {
-    dynamic_cast<impl*>(get_impl().get())->add(limiter);
 }
 
 composite_strict_limiter::impl::impl(const std::string& name)
-    : limiter::impl(0, name)
+    : base_t::impl(name)
 {
 }
 
 void composite_strict_limiter::impl::add(const basic_limiter& limiter)
 {
-    storage_.push_back(limiter);
+    boost::mutex::scoped_lock lock(global_composite_limiter_mutex_);
+    base_t::impl::add(limiter);
 }
 
 void composite_strict_limiter::impl::acquire(size_t n) throw(limiter_exhausted)
 {
     boost::mutex::scoped_lock lock(global_composite_limiter_mutex_);
-
-    storage_t::iterator it = storage_.begin();
-    storage_t::iterator end = storage_.end();
-    try
-    {
-        for(; it != end; it++)
-        {
-            (*it).acquire(n);
-        }
-    }
-    catch(const limiter_exhausted& ex)
-    {
-        storage_t::iterator end = it;
-        storage_t::iterator it = storage_.begin();
-        for(; it != end; it++)
-            (*it).release(n);
-
-        throw limiter_exhausted(name() + "/" + ex.what());
-    }
+    base_t::impl::acquire(n);
 }
 
 void composite_strict_limiter::impl::release(size_t n) _noexcept
 {
     boost::mutex::scoped_lock lock(global_composite_limiter_mutex_);
-
-    storage_t::iterator it = storage_.begin();
-    storage_t::iterator end = storage_.end();
-    for(; it != end; it++)
-        (*it).release(n);
+    base_t::impl::release(n);
 }
 
 
-YAMAIL_FQNS_MEMORYY_END
+YAMAIL_FQNS_MEMORY_END
