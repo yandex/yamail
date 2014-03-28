@@ -16,9 +16,17 @@ typedef boost::chrono::system_clock system_clock;
 typedef boost::chrono::system_clock::time_point time_point;
 using namespace yamail::memory;
 
+template <typename T>
+std::string to_string(const T& t)
+{
+    std::stringstream stream;
+    stream << t;
+    return stream.str();
+}
+
 TEST(limiters_repository, set_get_limiters)
 {
-    limiters_repository<suid> repository;
+    limiters_repository& repository = limiters_repository::inst();
     repository.init_factory(composite_limiter_factory::STRICT);
 
     ASSERT_EQ(repository.global_limiter().available(), 0);
@@ -39,7 +47,7 @@ TEST(limiters_repository, set_get_limiters)
 
 TEST(limiters_repository, make_limiter)
 {
-    limiters_repository<suid> repository;
+    limiters_repository& repository = limiters_repository::inst();
     repository.init_factory(composite_limiter_factory::STRICT);
     repository.global_limit(500, "global");
     repository.session_limit(400);
@@ -73,7 +81,7 @@ TEST(limiters_repository, one_suid_for_two_climiters)
 {
     typedef composite_limiter c_limiter;
 
-    limiters_repository<suid> repository;
+    limiters_repository& repository = limiters_repository::inst();
     repository.init_factory(composite_limiter_factory::STRICT);
     repository.global_limit(400);
     repository.session_limit(400);
@@ -82,7 +90,7 @@ TEST(limiters_repository, one_suid_for_two_climiters)
     c_limiter limiter1 = repository.make_limiter("composite1", "session1");
     c_limiter limiter2 = repository.make_limiter("composite2", "session2");
 
-    ASSERT_NO_THROW(repository.upgrade_limiter_with("vasya_pupkin", limiter1));
+    ASSERT_NO_THROW(repository.upgrade_limiter_with<string_uid>("vasya_pupkin", limiter1));
     ASSERT_EQ(limiter1.limiters().size(), 3);
     ASSERT_NO_THROW(limiter_by_name("suid_vasya_pupkin", limiter1));
     limiter u_lim = limiter_by_name("suid_vasya_pupkin", limiter1);
@@ -96,7 +104,7 @@ TEST(limiters_repository, one_suid_for_two_climiters)
     // the same suid used for limiter2
     limiter2.acquire(100);
     // the memory used from limiter2 will be applied to suid limiter
-    ASSERT_NO_THROW(repository.upgrade_limiter_with("vasya_pupkin", limiter2));
+    ASSERT_NO_THROW(repository.upgrade_limiter_with<string_uid>("vasya_pupkin", limiter2));
     ASSERT_NO_THROW(limiter_by_name("suid_vasya_pupkin", limiter2));
 
     ASSERT_EQ(u_lim.available(), 200);
@@ -106,7 +114,7 @@ TEST(limiters_repository, independent_suid_limiters)
 {
     typedef composite_limiter c_limiter;
 
-    limiters_repository<suid> repository;
+    limiters_repository& repository = limiters_repository::inst();
     repository.init_factory(composite_limiter_factory::STRICT);
     repository.global_limit(400);
     repository.session_limit(400);
@@ -115,12 +123,12 @@ TEST(limiters_repository, independent_suid_limiters)
     c_limiter limiter1 = repository.make_limiter("composite1", "session1");
     c_limiter limiter2 = repository.make_limiter("composite2", "session2");
 
-    ASSERT_NO_THROW(repository.upgrade_limiter_with("42", limiter1));
+    ASSERT_NO_THROW(repository.upgrade_limiter_with<string_uid>("42", limiter1));
     limiter1.acquire(100);
     limiter u42_lim = limiter_by_name("suid_42", limiter1);
     ASSERT_EQ(u42_lim.available(), 300);
 
-    ASSERT_NO_THROW(repository.upgrade_limiter_with("69", limiter2));
+    ASSERT_NO_THROW(repository.upgrade_limiter_with<string_uid>("69", limiter2));
     limiter u69_lim = limiter_by_name("suid_69", limiter2);
     ASSERT_EQ(u69_lim.available(), 400);
 }
@@ -129,7 +137,7 @@ TEST(limiters_repository, release_suid_limiter)
 {
     typedef composite_limiter c_limiter;
 
-    limiters_repository<suid> repository;
+    limiters_repository& repository = limiters_repository::inst();
     repository.init_factory(composite_limiter_factory::STRICT);
     repository.global_limit(400);
     repository.session_limit(400);
@@ -138,7 +146,7 @@ TEST(limiters_repository, release_suid_limiter)
     {
         c_limiter lim = repository.make_limiter("composite1", "session1");
         lim.acquire(100);
-        repository.upgrade_limiter_with("69", lim);
+        repository.upgrade_limiter_with<string_uid>("69", lim);
         limiter u_lim = limiter_by_name("suid_69", lim);
         ASSERT_EQ(u_lim.available(), 300);
     }
@@ -146,7 +154,7 @@ TEST(limiters_repository, release_suid_limiter)
     ASSERT_EQ(repository.suid_storage_size(), 0);
 
     c_limiter lim = repository.make_limiter("composite1", "session1");
-    repository.upgrade_limiter_with("69", lim);
+    repository.upgrade_limiter_with<string_uid>("69", lim);
     limiter u_lim = limiter_by_name("suid_69", lim);
     ASSERT_EQ(u_lim.available(), 400);
 }
@@ -156,7 +164,7 @@ TEST(limiters_repository, release_all_suid_limiters)
     typedef composite_limiter limiter;
     typedef std::vector<limiter> limiter_list;
 
-    limiters_repository<int> repository;
+    limiters_repository& repository = limiters_repository::inst();
     repository.init_factory(composite_limiter_factory::STRICT);
     repository.suid_limit(1);
 
@@ -165,7 +173,7 @@ TEST(limiters_repository, release_all_suid_limiters)
         for(int i=0; i<100; i++)
         {
             limiter l = repository.make_limiter();
-            repository.upgrade_limiter_with(i, l);
+            repository.upgrade_limiter_with<string_uid>(to_string(i), l);
             limiters.push_back(l);
         }
         ASSERT_EQ(repository.suid_storage_size(), 100);
@@ -183,7 +191,7 @@ void pusher(limiters_repository<int>& repo, std::list<composite_limiter>& storag
         for(int i=0; i<20000; i++)
         {
             composite_limiter lim = repo.make_limiter();
-            repo.upgrade_limiter_with(i, lim);
+            repo.upgrade_limiter_with<string_uid>(to_string(i), lim);
             local_storage.push_back(lim);
         }
 

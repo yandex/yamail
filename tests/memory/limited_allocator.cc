@@ -9,7 +9,7 @@
 #include <boost/lexical_cast.hpp>
 #include <gtest/gtest.h>
 
-#define DEBUG_OUTPUT 0
+//#define DEBUG_OUTPUT
 
 struct byte_100
 {

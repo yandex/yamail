@@ -34,7 +34,7 @@ public:
  */
 class limiter
 {
-    template<class T> friend class limiters_repository;
+    friend class limiters_repository;
 
 public:
     class impl : public boost::noncopyable

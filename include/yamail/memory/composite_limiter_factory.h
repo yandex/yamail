@@ -13,7 +13,7 @@ YAMAIL_FQNS_MEMORY_BEGIN
 class composite_limiter_factory
 {
 public:
-    enum type {FUZZY, STRICT};
+    enum type {FUZZY, STRICT, UNLIMITED};
 
     void init(composite_limiter_factory::type t);
 

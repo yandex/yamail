@@ -3,6 +3,7 @@
 #include <yamail/config.h>
 #include <yamail/memory/namespace.h>
 #include <yamail/memory/limiters.h>
+#include <yamail/memory/limiters_repository.h>
 
 #include <memory>
 
@@ -92,6 +93,26 @@ public:
 
 private:
   limiter_t limiter_;
+};
+
+template <typename Limiter, typename BaseAllocator>
+class limited_allocator<void, Limiter, BaseAllocator>: public BaseAllocator::template rebind<void>::other
+{
+  typedef typename BaseAllocator::template rebind<void>::other base_t;
+  typedef Limiter limiter_t;
+
+public:
+  typedef typename base_t::size_type        size_type;
+  typedef typename base_t::difference_type  difference_type;
+  typedef typename base_t::pointer          pointer;
+  typedef typename base_t::const_pointer    const_pointer;
+  typedef typename base_t::value_type       value_type;
+
+public:
+  template <typename U> struct rebind {
+    typedef limited_allocator<U, limiter_t,
+            typename base_t::template rebind<U>::other> other;
+  };
 };
 
 
