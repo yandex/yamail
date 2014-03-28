@@ -29,21 +29,14 @@ public:
 
 
 /*
- * Base class for limiters
- * presents pimpl idiom and provides base class for implementation.
- *
- * NOTE: this class should not be used directly for creating limiters,
- * it is only provide general realization for derived classes.
- *
- * NOTE: this class do not provide virtual methods so do not try overload
- * this function, you need to overload only pure virtual methods of impl class.
+ * Holder for limiter implementation
+ * Presents pimpl idiom and provides base class for implementation.
  */
 class limiter
 {
-    // !! Each derived class should be friend to limiters_repository<T>
     template<class T> friend class limiters_repository;
 
-protected:
+public:
     class impl : public boost::noncopyable
     {
     public:
@@ -72,16 +65,11 @@ protected:
 private:
     // Used in limiters_repository to make weak_ptr<impl>
     // NOTE: It is not possible return directly weak_ptr<impl>
-    // because in limiters_repository works with weak_ptr<derrived::impl>
-    compat::shared_ptr<impl>& get_impl();
-
-protected:
-    // Used in derived classes
-    // !! Each derived class should has the same constructor,
-    // it is used in limiters_repository
-    limiter(compat::shared_ptr<impl> impl);
+    // because in limiters_repository works with weak_ptr<derrived>
+    compat::shared_ptr<impl>& get();
 
 public:
+    explicit limiter(compat::shared_ptr<impl> impl);
 
     void acquire(size_t n) throw(limiter_exhausted);
     void release(size_t n) _noexcept;
@@ -93,34 +81,42 @@ public:
 private:
     compat::shared_ptr<impl> impl_;
 };
+template <typename Impl>
+limiter make_limiter(size_t limit, const std::string& name = std::string())
+{
+    return limiter(compat::make_shared<Impl>(limit, name));
+}
+
+/*
+ * class unlimited_limiter:
+ *  and it's all.
+ */
+class unlimited_limiter: public limiter::impl
+{
+public:
+    unlimited_limiter(size_t limit, const std::string& name);
+
+    void acquire(size_t n) throw (limiter_exhausted);
+    void release(size_t n) _noexcept;
+    size_t available() const;
+};
 
 /*
  * class basic_limiter:
  *  simple limiter without any synchronization
  *  might be used with composite_strict_limiter or single thread code
  */
-class basic_limiter : public limiter
+class basic_limiter: public limiter::impl
 {
-    template<class T> friend class limiters_repository;
+public:
+    basic_limiter(size_t limit, const std::string& name);
 
-    class impl : public limiter::impl
-    {
-    public:
-        impl(size_t limit, const std::string& name);
-
-        void acquire(size_t n) throw(limiter_exhausted);
-        void release(size_t n) _noexcept;
-        size_t available() const;
-
-    private:
-        size_t available_;
-    };
+    void acquire(size_t n) throw (limiter_exhausted);
+    void release(size_t n) _noexcept;
+    size_t available() const;
 
 private:
-    explicit basic_limiter(boost::shared_ptr<impl> impl);
-
-public:
-    explicit basic_limiter(size_t limit, const std::string& name = std::string());
+    size_t available_;
 };
 
 /*
@@ -128,29 +124,19 @@ public:
  *  the same as basic_limiter but provide synchronization
  *  might be used directly in multithread code
  */
-class strict_limiter : public limiter
+
+class strict_limiter: public limiter::impl
 {
-    template<class T> friend class limiters_repository;
+public:
+    strict_limiter(size_t limit, const std::string& name);
 
-    class impl : public limiter::impl
-    {
-    public:
-        impl(size_t limit, const std::string& name);
-
-        void acquire(size_t n) throw(limiter_exhausted);
-        void release(size_t n) _noexcept;
-        size_t available() const;
-
-    private:
-        size_t available_;
-        mutable boost::mutex mtx_;
-    };
+    void acquire(size_t n) throw (limiter_exhausted);
+    void release(size_t n) _noexcept;
+    size_t available() const;
 
 private:
-    explicit strict_limiter(boost::shared_ptr<impl> impl);
-
-public:
-    explicit strict_limiter(size_t limit, const std::string& name = std::string());
+    size_t available_;
+    mutable boost::mutex mtx_;
 };
 
 /*
@@ -160,70 +146,55 @@ public:
  *  NOTE: it is possible that in multithread code this limiter
  *  can acquire a little more than was set by limit
  */
-class fuzzy_limiter : public limiter
+class fuzzy_limiter: public limiter::impl
 {
-    template<class T> friend class limiters_repository;
+public:
+    fuzzy_limiter(size_t limit, const std::string& name);
 
-    class impl : public limiter::impl
-    {
-    public:
-        impl(size_t limit, const std::string& name);
-
-        void acquire(size_t n) throw(limiter_exhausted);
-        void release(size_t n) _noexcept;
-        size_t available() const;
-
-    private:
-        boost::atomic<int64_t> available_;
-    };
+    void acquire(size_t n) throw (limiter_exhausted);
+    void release(size_t n) _noexcept;
+    size_t available() const;
 
 private:
-    explicit fuzzy_limiter(boost::shared_ptr<impl> impl);
-
-public:
-    explicit fuzzy_limiter(size_t limit, const std::string& name = std::string());
+    boost::atomic<int64_t> available_;
 };
 
 /*
- * Base class for composite limiters
- * presents pimpl idiom and provides base class for implementation.
- *
- * NOTE: this class should not be used directly for creating limiters,
- * it is only provide general realization for derived classes.
- *
- * NOTE: this class do not provide virtual methods so do not try to overload
- * this function, you need to overload only pure virtual methods of impl class.
- *
- * NOTE: Class do not provide any synchronization
+ * Holder for composite limiters
+ * Presents pimpl idiom and provides base class for implementation.
  */
-template <typename Limiter>
 class composite_limiter
 {
 public:
-    // !! Each derived class should define next types
-    typedef Limiter limiter;
-    typedef std::vector<Limiter> container;
+    typedef std::vector<limiter> container;
 
-protected:
+public:
     class impl : public boost::noncopyable
     {
+        struct scoped_lock : public boost::noncopyable
+        {
+            scoped_lock(boost::mutex* mtx):mtx_(mtx)
+            { if(mtx_) mtx_->lock(); }
+
+            ~scoped_lock() { if(mtx_) mtx_->unlock(); }
+
+            boost::mutex* mtx_;
+        };
+
     public:
-        impl(const std::string& name);
+        impl(const std::string& name, size_t reserve = 3);
         virtual ~impl();
 
-        virtual void add(const Limiter& limiter);
+        virtual boost::mutex* mutex();
+
+        virtual void add(const limiter& limiter);
 
         virtual void acquire(size_t n) throw(limiter_exhausted);
         virtual void release(size_t n) _noexcept;
 
-        const std::string& name() const
-        { return name_; }
-
-        const container& limiters() const
-        { return storage_; }
-
-        size_t used() const
-        { return used_; }
+        const std::string& name() const;
+        container limiters();
+        size_t used();
 
     private:
         container storage_;
@@ -232,8 +203,7 @@ protected:
     };
 
 public:
-    composite_limiter(compat::shared_ptr<impl> impl)
-        :impl_(impl) {}
+    explicit composite_limiter(compat::shared_ptr<impl> impl);
 
     void acquire(size_t n) throw(limiter_exhausted)
     { impl_->acquire(n); }
@@ -241,13 +211,13 @@ public:
     void release(size_t n) _noexcept
     { impl_->release(n); }
 
-    void add(const Limiter& limiter)
+    void add(const limiter& limiter)
     { impl_->add(limiter); }
 
     const std::string& name() const
     { return impl_->name(); }
 
-    const container& limiters() const
+    container limiters() const
     { return impl_->limiters(); }
 
     size_t used() const
@@ -257,60 +227,24 @@ private:
     compat::shared_ptr<impl> impl_;
 };
 
-template <typename Limiter>
-composite_limiter<Limiter>::impl::impl(const std::string& name)
-    :name_(name), used_(0)
+template <typename Impl>
+composite_limiter make_composite_limiter(const std::string& name = std::string())
 {
-    // reserver memory for 3 limiter: global, suid, session
-    storage_.reserve(3);
+    return composite_limiter(compat::make_shared<Impl>(name));
 }
 
-template <typename Limiter>
-composite_limiter<Limiter>::impl::~impl()
+/*
+ * class composite_unlimited_limiter:
+ */
+class composite_unlimited_limiter: public composite_limiter::impl
 {
-}
+public:
+    composite_unlimited_limiter(const std::string& name = std::string());
 
-template <typename Limiter>
-void composite_limiter<Limiter>::impl::add(const Limiter& limiter)
-{
-    storage_.push_back(limiter);
-}
-
-template <typename Limiter>
-void composite_limiter<Limiter>::impl::acquire(size_t n) throw(limiter_exhausted)
-{
-    typedef typename container::iterator iterator;
-    iterator it = storage_.begin();
-    iterator end = storage_.end();
-    try
-    {
-        for(; it != end; it++)
-        {
-            (*it).acquire(n);
-        }
-    }
-    catch(const limiter_exhausted& ex)
-    {
-        iterator end = it;
-        iterator it = storage_.begin();
-        for(; it != end; it++)
-            (*it).release(n);
-
-        throw limiter_exhausted(name() + "/" + ex.what());
-    }
-    used_ += n;
-}
-
-template <typename Limiter>
-void composite_limiter<Limiter>::impl::release(size_t n) _noexcept
-{
-    typedef typename container::iterator iterator;
-    iterator it = storage_.begin();
-    iterator end = storage_.end();
-    for(; it != end; it++)
-        (*it).release(n);
-    used_ -= n;
-}
+    virtual void add(const limiter& limiter);
+    virtual void acquire(size_t n) throw(limiter_exhausted);
+    virtual void release(size_t n) _noexcept;
+};
 
 /*
  * class composite_fuzzy_limiter:
@@ -319,55 +253,42 @@ void composite_limiter<Limiter>::impl::release(size_t n) _noexcept
  *
  *  NOTE: it is possible that in multithread code this limiter
  *  can acquire a little more than was set by limit
- *
- *  NOTE: Not thread safe in meaning to work with storage
  */
-class composite_fuzzy_limiter: public composite_limiter<fuzzy_limiter>
+class composite_fuzzy_limiter: public composite_limiter::impl
 {
-    typedef composite_limiter<fuzzy_limiter> base_t;
-
 public:
-    typedef base_t::limiter limiter;
-    typedef base_t::container container;
+    composite_fuzzy_limiter(const std::string& name = std::string());
 
-    explicit composite_fuzzy_limiter(const std::string& name = std::string())
-        :base_t(compat::make_shared<base_t::impl>(name))
-    {}
+    boost::mutex* mutex();
+
+private:
+    mutable boost::mutex mutex_;
 };
-
 
 /*
  * class composite_strict_limiter:
  *  this limiter can combine a group of limiters,
  *  provides synchronization for all limiters simultaneously
- *
- *  NOTE: Thread safe
  */
-class composite_strict_limiter: public composite_limiter<basic_limiter>
+class composite_strict_limiter: public composite_limiter::impl
 {
-private:
-    typedef composite_limiter<basic_limiter> base_t;
-
-    class impl : public base_t::impl
-    {
-    public:
-        impl(const std::string& name);
-
-        void add(const basic_limiter& limiter);
-
-        void acquire(size_t n) throw(limiter_exhausted);
-        void release(size_t n) _noexcept;
-
-    private:
-        static boost::mutex global_composite_limiter_mutex_;
-    };
-
 public:
-    typedef base_t::limiter limiter;
-    typedef base_t::container container;
+    composite_strict_limiter(const std::string& name = std::string());
 
-    explicit composite_strict_limiter(const std::string& name = std::string());
+    boost::mutex* mutex();
+
+private:
+    static boost::mutex global_composite_limiter_mutex_;
 };
+
+limiter make_unlimited_limiter(size_t limit, const std::string& name = std::string());
+limiter make_basic_limiter(size_t limit, const std::string& name = std::string());
+limiter make_strict_limiter(size_t limit, const std::string& name = std::string());
+limiter make_fuzzy_limiter(size_t limit, const std::string& name = std::string());
+
+composite_limiter make_composite_unlimited_limiter(const std::string& name = std::string());
+composite_limiter make_composite_fuzzy_limiter(const std::string& name = std::string());
+composite_limiter make_composite_strict_limiter(const std::string& name = std::string());
 
 YAMAIL_NS_MEMORY_END
 YAMAIL_NS_END

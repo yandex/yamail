@@ -4,6 +4,7 @@
 #include <yamail/config.h>
 #include <yamail/memory/namespace.h>
 #include <yamail/memory/limiters.h>
+#include <yamail/memory/composite_limiter_factory.h>
 #include <yamail/compat/shared_ptr.h>
 
 #include <map>
@@ -19,8 +20,6 @@ class limiters_repository
 {
 public:
     typedef SUID suid;
-    typedef composite_strict_limiter composite_limiter;
-    typedef composite_limiter::limiter limiter;
 
 private:
     /*
@@ -38,6 +37,7 @@ public:
     limiters_repository();
 
     // Initialization function
+    void init_factory(composite_limiter_factory::type t);
     void global_limit(size_t limit, const std::string name = std::string("GLOBAL"));
     void session_limit(size_t limit);
     void suid_limit(size_t limit);
@@ -76,12 +76,13 @@ private:
 private:
     boost::mutex mtx_;
     storage storage_;
+    composite_limiter_factory factory_;
 
-    // Global limiter
-    limiter g_limiter_;
-    // Limit per session (for session limiter)
-    size_t s_limit_;
+    size_t global_limit_;
+    size_t session_limit_;
     size_t suid_limit_;
+
+    limiter global_limiter_;
 };
 
 #include <yamail/memory/detail/limiters_repository.ipp>

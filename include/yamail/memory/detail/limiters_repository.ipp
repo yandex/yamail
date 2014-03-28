@@ -1,21 +1,27 @@
 
 template <typename SUID>
 limiters_repository<SUID>::limiters_repository()
-    : g_limiter_(0, "UNINITIALIZED_GLOBAL_LIMITER")
-    , s_limit_(0), suid_limit_(0)
+    : global_limit_(0), session_limit_(0), suid_limit_(0)
+    , global_limiter_(factory_.make_limiter(0, "UNINITIALIZED_GLOBAL_LIMITER"))
 {
+}
+template <typename SUID>
+void limiters_repository<SUID>::init_factory(composite_limiter_factory::type t)
+{
+    factory_.init(t);
 }
 
 template <typename SUID>
 void limiters_repository<SUID>::global_limit(size_t limit, const std::string name)
 {
-    g_limiter_ = limiter(limit, name);
+    global_limit_ = limit;
+    global_limiter_ = factory_.make_limiter(global_limit_, name);
 }
 
 template <typename SUID>
 void limiters_repository<SUID>::session_limit(size_t limit)
 {
-    s_limit_ = limit;
+    session_limit_ = limit;
 }
 
 template <typename SUID>
@@ -25,33 +31,36 @@ void limiters_repository<SUID>::suid_limit(size_t limit)
 }
 
 template <typename SUID>
-typename limiters_repository<SUID>::limiter limiters_repository<SUID>::global_limiter()
+limiter limiters_repository<SUID>::global_limiter()
 {
-    return g_limiter_;
+    return global_limiter_;
 }
 
 template <typename SUID>
-typename limiters_repository<SUID>::limiter
-limiters_repository<SUID>::session_limiter(const std::string name)
+limiter limiters_repository<SUID>::session_limiter(const std::string name)
 {
-   return limiter(s_limit_, name);
+   return factory_.make_limiter(session_limit_, name);
 }
 
 template <typename SUID>
-typename limiters_repository<SUID>::composite_limiter
+composite_limiter
 limiters_repository<SUID>::make_limiter(const std::string name, const std::string sn_name)
 {
-    composite_limiter limiter(name);
-    limiter.add(session_limiter(sn_name));
-    limiter.add(global_limiter());
+    composite_limiter limiter = factory_.make_composite_limiter(name);
+    if(session_limit_)
+        limiter.add(session_limiter(sn_name));
+    if(global_limit_)
+        limiter.add(global_limiter());
     return limiter;
 }
 template <typename SUID>
-void limiters_repository<SUID>::upgrade_limiter_with(const suid& id, composite_limiter& limiter)
+void limiters_repository<SUID>::upgrade_limiter_with(const suid& id, composite_limiter& lim)
 {
-    composite_limiter::limiter holder =
-            composite_limiter::limiter(suid_limit_, "suid_" + boost::lexical_cast<std::string>(id));
-    limiter_impl_wptr wlim(compat::dynamic_pointer_cast<limiter::impl>(holder.get_impl()));
+    if(suid_limit_ == 0)
+        return;
+
+    limiter holder = factory_.make_limiter(suid_limit_, "suid_" + boost::lexical_cast<std::string>(id));
+    limiter_impl_wptr wlim(compat::dynamic_pointer_cast<limiter::impl>(holder.get()));
 
     boost::mutex::scoped_lock lock(mtx_);
     std::pair<iterator, bool> res = storage_.insert(std::make_pair(id, wlim));
@@ -71,15 +80,15 @@ void limiters_repository<SUID>::upgrade_limiter_with(const suid& id, composite_l
     {
         if(res.second) // the new limiter was inserted
         {
-            holder.get_impl()->cleanup(boost::bind(&limiters_repository::release_by, this, id));
-            holder.acquire(limiter.used());
-            limiter.add(holder);
+            holder.get()->cleanup(boost::bind(&limiters_repository::release_by, this, id));
+            holder.acquire(lim.used());
+            lim.add(holder);
         }
         else // limiter has already was in storage, just upgrade it with used memory
         {
-            composite_limiter::limiter l(ptr);
-            l.acquire(limiter.used());
-            limiter.add(l);
+            limiter l(ptr);
+            l.acquire(lim.used());
+            lim.add(l);
         }
     }
     else
@@ -87,9 +96,9 @@ void limiters_repository<SUID>::upgrade_limiter_with(const suid& id, composite_l
         // It's about tricky prat
         storage_.erase(id);
         storage_.insert(std::make_pair(id, wlim));
-        holder.get_impl()->cleanup(boost::bind(&limiters_repository::release_by, this, id));
-        holder.acquire(limiter.used());
-        limiter.add(holder);
+        holder.get()->cleanup(boost::bind(&limiters_repository::release_by, this, id));
+        holder.acquire(lim.used());
+        lim.add(holder);
     }
 }
 

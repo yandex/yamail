@@ -9,6 +9,7 @@
 #include <boost/lexical_cast.hpp>
 #include <gtest/gtest.h>
 
+#define DEBUG_OUTPUT 0
 
 struct byte_100
 {
@@ -150,18 +151,16 @@ void pusher(time_point start, List& l, boost::atomic<size_t>& count)
     count += local_counter;
 }
 
-template<typename T, typename Limiter>
-bool test_limiter(size_t th, size_t limit)
+template<typename T>
+bool test_limiter(size_t th, limiter limit)
 {
-    typedef limited_allocator<T, Limiter> l_allocator;
+    typedef limited_allocator<T, limiter> l_allocator;
     typedef std::list<T, l_allocator> l_list;
 
     time_point start = system_clock::now() + boost::chrono::milliseconds(100);
     std::list<l_list> collector;
     boost::atomic<size_t> count(0);
-    size_t total_limit = 1024 * 1024 * limit;
-    Limiter limiter(total_limit);
-    l_allocator allocator(limiter);
+    l_allocator allocator(limit);
     boost::thread_group gr;
 
     for(size_t i=0; i<th; i++)
@@ -174,7 +173,7 @@ bool test_limiter(size_t th, size_t limit)
 
     gr.join_all();
 
-    size_t expected = total_limit / sizeof_listnode<T>();
+    size_t expected = limit.limit() / sizeof_listnode<T>();
 
     safe_cout()
         << (expected == count.load() ? "PASSED" : "FAILED") << ": "
@@ -225,10 +224,10 @@ bool test_expected_elements(size_t limit_mb, size_t produced, std::string& msg)
     return res;
 }
 
-template <typename CompositeLimiter, typename Limiter>
-bool test_composite_limiter(size_t th, Limiter global, std::vector<Limiter> groups)
+template <typename CompositeLimiteImpl, typename LimiterImpl>
+bool test_composite_limiter(size_t th, limiter global, std::vector<limiter> groups)
 {
-    typedef limited_allocator<byte_100, CompositeLimiter> l_allocator;
+    typedef limited_allocator<byte_100, composite_limiter> l_allocator;
     typedef std::list<byte_100, l_allocator> l_list;
 
     std::list<pusher_resault_data> res;
@@ -238,16 +237,16 @@ bool test_composite_limiter(size_t th, Limiter global, std::vector<Limiter> grou
 
     for(size_t i = 0; i < th; i++)
     {
-        CompositeLimiter limiter("composite_" + to_string(i));
-        limiter.add(global);
+        composite_limiter l = make_composite_limiter<CompositeLimiteImpl>("composite_" + to_string(i));
+        l.add(global);
 
         size_t gr_number = i % groups.size();
-        limiter.add(groups[gr_number]);
+        l.add(groups[gr_number]);
 
         size_t local_limit = make_mb((i % 5)+1);
-        limiter.add(Limiter(local_limit, "local"));
+        l.add(make_limiter<LimiterImpl>(local_limit, "local"));
 
-        l_allocator allocator(limiter);
+        l_allocator allocator(l);
         pusher_resault_data data;
         data.local_limit = local_limit;
         data.group_number = gr_number;
@@ -311,8 +310,8 @@ bool test_composite_limiter(size_t th, Limiter global, std::vector<Limiter> grou
     test_resault &= result;
 
     return test_resault;
-
 }
+
 
 template <typename Limiter>
 bool test_return_memory(const Limiter& lim)
@@ -352,46 +351,46 @@ bool test_return_memory(const Limiter& lim)
 TEST(limited_allocator, performanse)
 {
     {
-        safe_cout() << "Test strict limiter:\n";
-        { profiler p; test_limiter<byte_100, strict_limiter>(1, 20); }
-        { profiler p; test_limiter<byte_100, strict_limiter>(1, 40); }
-        { profiler p; test_limiter<byte_100, strict_limiter>(1, 80); }
+        safe_cout() << "Test strict limiter:";
+        { profiler p; test_limiter<byte_100>(1, make_strict_limiter(make_mb(20))); }
+        { profiler p; test_limiter<byte_100>(1, make_strict_limiter(make_mb(40))); }
+        { profiler p; test_limiter<byte_100>(1, make_strict_limiter(make_mb(80))); }
     }
 
     {
-        safe_cout() << "\n" << "Test fuzzy limiter:\n";
-        { profiler p; test_limiter<byte_100, fuzzy_limiter>(1, 20); }
-        { profiler p; test_limiter<byte_100, fuzzy_limiter>(1, 40); }
-        { profiler p; test_limiter<byte_100, fuzzy_limiter>(1, 80); }
+        safe_cout() << "\n" << "Test fuzzy limiter:";
+        { profiler p; test_limiter<byte_100>(1, make_fuzzy_limiter(make_mb(20))); }
+        { profiler p; test_limiter<byte_100>(1, make_fuzzy_limiter(make_mb(40))); }
+        { profiler p; test_limiter<byte_100>(1, make_fuzzy_limiter(make_mb(80))); }
     }
 
     {
-        safe_cout() << "\n" << "Test basic limiter:\n";
-        { profiler p; test_limiter<byte_100, basic_limiter>(1, 20); }
-        { profiler p; test_limiter<byte_100, basic_limiter>(1, 40); }
-        { profiler p; test_limiter<byte_100, basic_limiter>(1, 80); }
+        safe_cout() << "\n" << "Test basic limiter:";
+        { profiler p; test_limiter<byte_100>(1, make_basic_limiter(make_mb(20))); }
+        { profiler p; test_limiter<byte_100>(1, make_basic_limiter(make_mb(40))); }
+        { profiler p; test_limiter<byte_100>(1, make_basic_limiter(make_mb(80))); }
     }
 
     {
-        safe_cout() << "\n" << "Test composite fuzzy limiter:\n";
-        fuzzy_limiter global(make_mb(30), "global"); // will exhausted
-        std::vector<fuzzy_limiter> groups;
-        groups.push_back(fuzzy_limiter(make_mb(9), "group_1")); // will exhausted
-        groups.push_back(fuzzy_limiter(make_mb(8), "group_2")); // will exhausted
-        groups.push_back(fuzzy_limiter(make_mb(20), "group_3"));
+        safe_cout() << "\n" << "Test composite fuzzy limiter:";
+        limiter global = make_fuzzy_limiter(make_mb(30), "global"); // will exhausted
+        std::vector<limiter> groups;
+        groups.push_back(make_fuzzy_limiter(make_mb(9), "group_1")); // will exhausted
+        groups.push_back(make_fuzzy_limiter(make_mb(8), "group_2")); // will exhausted
+        groups.push_back(make_fuzzy_limiter(make_mb(20), "group_3"));
         profiler p;
-        test_composite_limiter<composite_fuzzy_limiter>(20, global, groups);
+        test_composite_limiter<composite_fuzzy_limiter, fuzzy_limiter>(20, global, groups);
     }
 
     {
-        safe_cout() << "\n" << "Test composite strict limiter:\n";
-        basic_limiter global(make_mb(30), "global"); // will exhausted
-        std::vector<basic_limiter> groups;
-        groups.push_back(basic_limiter(make_mb(9), "group_1")); // will exhausted
-        groups.push_back(basic_limiter(make_mb(8), "group_2")); // will exhausted
-        groups.push_back(basic_limiter(make_mb(20), "group_3"));
+        safe_cout() << "\n" << "Test composite strict limiter:";
+        limiter global = make_basic_limiter(make_mb(30), "global"); // will exhausted
+        std::vector<limiter> groups;
+        groups.push_back(make_basic_limiter(make_mb(9), "group_1")); // will exhausted
+        groups.push_back(make_basic_limiter(make_mb(8), "group_2")); // will exhausted
+        groups.push_back(make_basic_limiter(make_mb(20), "group_3"));
         profiler p;
-        test_composite_limiter<composite_strict_limiter>(20, global, groups);
+        test_composite_limiter<composite_strict_limiter, basic_limiter>(20, global, groups);
     }
 
 }
@@ -400,48 +399,48 @@ TEST(limited_allocator, performanse)
 TEST(limited_allocator, limiter)
 {
 
-    ASSERT_TRUE((test_limiter<byte_100, basic_limiter>(1, 10)));
-    ASSERT_TRUE((test_limiter<byte_100, strict_limiter>(20, 10)));
-    ASSERT_TRUE((test_limiter<byte_100, fuzzy_limiter>(20, 10)));
+    ASSERT_TRUE((test_limiter<byte_100>(1, make_basic_limiter(make_mb(10)))));
+    ASSERT_TRUE((test_limiter<byte_100>(20, make_strict_limiter(make_mb(10)))));
+    ASSERT_TRUE((test_limiter<byte_100>(20, make_fuzzy_limiter(make_mb(10)))));
 
-    ASSERT_TRUE(test_return_memory(basic_limiter(make_mb(1))));
-    ASSERT_TRUE(test_return_memory(strict_limiter(make_mb(1))));
-    ASSERT_TRUE(test_return_memory(fuzzy_limiter(make_mb(1))));
+    ASSERT_TRUE(test_return_memory(make_basic_limiter(make_mb(1))));
+    ASSERT_TRUE(test_return_memory(make_strict_limiter(make_mb(1))));
+    ASSERT_TRUE(test_return_memory(make_fuzzy_limiter(make_mb(1))));
 }
 
 TEST(limited_allocator, composite_fuzzy_limiter)
 {
     {
-        fuzzy_limiter global(make_mb(10), "global"); // will exhausted
-        std::vector<fuzzy_limiter> groups;
-        groups.push_back(fuzzy_limiter(make_mb(4), "group_1")); // will exhausted
-        groups.push_back(fuzzy_limiter(make_mb(4), "group_2")); // will exhausted
-        groups.push_back(fuzzy_limiter(make_mb(6), "group_3"));
-        ASSERT_TRUE((test_composite_limiter<composite_fuzzy_limiter>(5, global, groups)));
+        limiter global = make_fuzzy_limiter(make_mb(10), "global"); // will exhausted
+        std::vector<limiter> groups;
+        groups.push_back(make_fuzzy_limiter(make_mb(4), "group_1")); // will exhausted
+        groups.push_back(make_fuzzy_limiter(make_mb(4), "group_2")); // will exhausted
+        groups.push_back(make_fuzzy_limiter(make_mb(6), "group_3"));
+        ASSERT_TRUE((test_composite_limiter<composite_fuzzy_limiter, fuzzy_limiter>(5, global, groups)));
 
-        composite_fuzzy_limiter composite;
+        composite_limiter composite = make_composite_fuzzy_limiter();
         composite.add(global); // higher
         composite.add(groups[1]); // less
         composite.add(groups[0]); // less
-        ASSERT_TRUE((test_return_memory<composite_fuzzy_limiter>(composite)));
+        ASSERT_TRUE((test_return_memory(composite)));
     }
 }
 
 TEST(limited_allocator, composite_strict_limiter)
 {
     {
-        basic_limiter global(make_mb(10), "global"); // will exhausted
-        std::vector<basic_limiter> groups;
-        groups.push_back(basic_limiter(make_mb(4), "group_1")); // will exhausted
-        groups.push_back(basic_limiter(make_mb(4), "group_2")); // will exhausted
-        groups.push_back(basic_limiter(make_mb(6), "group_3"));
-        ASSERT_TRUE((test_composite_limiter<composite_strict_limiter>(5, global, groups)));
+        limiter global = make_strict_limiter(make_mb(10), "global"); // will exhausted
+        std::vector<limiter> groups;
+        groups.push_back(make_basic_limiter(make_mb(4), "group_1")); // will exhausted
+        groups.push_back(make_basic_limiter(make_mb(4), "group_2")); // will exhausted
+        groups.push_back(make_basic_limiter(make_mb(6), "group_3"));
+        ASSERT_TRUE((test_composite_limiter<composite_strict_limiter, fuzzy_limiter>(5, global, groups)));
 
-        composite_strict_limiter composite;
+        composite_limiter composite = make_composite_strict_limiter();
         composite.add(global);
         composite.add(groups[1]);
         composite.add(groups[0]);
-        ASSERT_TRUE((test_return_memory<composite_strict_limiter>(composite)));
+        ASSERT_TRUE((test_return_memory(composite)));
 
     }
 }
