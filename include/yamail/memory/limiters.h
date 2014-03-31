@@ -203,6 +203,7 @@ public:
     };
 
 public:
+    composite_limiter();
     explicit composite_limiter(compat::shared_ptr<impl> impl);
 
     void acquire(size_t n) throw(limiter_exhausted)
@@ -281,7 +282,7 @@ private:
     static boost::mutex global_composite_limiter_mutex_;
 };
 
-limiter make_unlimited_limiter(size_t limit, const std::string& name = std::string());
+limiter make_unlimited_limiter(size_t limit = 0, const std::string& name = std::string());
 limiter make_basic_limiter(size_t limit, const std::string& name = std::string());
 limiter make_strict_limiter(size_t limit, const std::string& name = std::string());
 limiter make_fuzzy_limiter(size_t limit, const std::string& name = std::string());

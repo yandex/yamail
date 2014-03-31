@@ -16,7 +16,7 @@ YAMAIL_NS_MEMORY_BEGIN
 namespace compat = YAMAIL_FQNS_COMPAT;
 
 /*
- * Concept of limiter of allocator
+ * Concept of Limiter for allocator
 class limiter
 {
     void acquire(size_t n) throw(limiter_exhausted);
@@ -45,7 +45,7 @@ public:
             typename base_t::template rebind<U>::other> other;
   };
 
-  limited_allocator() _noexcept {}
+  limited_allocator() _noexcept { }
 
   limited_allocator(limiter_t const& limiter) _noexcept
     : base_t()
@@ -65,6 +65,7 @@ public:
   pointer allocate (size_type n,
       typename base_t::template rebind<void>::other::const_pointer hint=0)
   {
+    //std::cout << "[" << limiter_.name() << "] allocate " << n << std::endl;
     limiter_.acquire(n * sizeof(T));
     
     pointer p;
@@ -82,11 +83,13 @@ public:
 
   void deallocate (pointer p, size_type n)
   {
+    //std::cout << "[" << limiter_.name() << "] deallocate " << n << std::endl;
     limiter_.release(n * sizeof(T));
     this->base_t::deallocate(p, n);
   }
 
-  size_type max_size () const _noexcept;
+  // Think about it later
+  //size_type max_size () const _noexcept;
 
   limiter_t limiter() const
   { return limiter_; }

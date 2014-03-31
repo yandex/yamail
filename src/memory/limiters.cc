@@ -176,10 +176,14 @@ size_t fuzzy_limiter::available() const
  * composite_limiter
  */
 
+composite_limiter::composite_limiter()
+    :impl_(compat::make_shared<composite_unlimited_limiter>())
+{
+}
+
 composite_limiter::composite_limiter(compat::shared_ptr<impl> impl)
     :impl_(impl)
 {
-
 }
 
 composite_limiter::impl::impl(const std::string& name, size_t reserve)
@@ -227,7 +231,7 @@ void composite_limiter::impl::acquire(size_t n) throw(limiter_exhausted)
         for(; it != end; it++)
             (*it).release(n);
 
-        throw limiter_exhausted(name() + "/" + ex.what());
+        throw limiter_exhausted("limiter '" + name() + "/" + ex.what() + "' exhausted");
     }
     used_ += n;
 }
