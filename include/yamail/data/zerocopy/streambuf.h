@@ -636,6 +636,13 @@ protected:
         }
         promote_put();
     }
+
+    /**
+     * Limits specified desired_size to the fragment size constrains.
+     */
+    std::size_t constrain_fragment_size( std::size_t desired_size ) const {
+        return std::min(std::max(desired_size, min_fragmentation_), max_fragmentation_);
+    }
     // Extend put area to n bytes (total)
     void reserve(std::size_t n) {
 #if defined(YDEBUG)
@@ -655,19 +662,8 @@ protected:
         std::cerr << "RESERVE (" << n << ") - 0\n";
 #endif
         while (put_size() < n) {
-            // calculate fragment size
-            std::size_t needed_size = n - put_size();
-
-            std::size_t sz = std::min<std::size_t>(
-                    std::max<std::size_t>(needed_size, min_fragmentation_),
-                    max_fragmentation_);
-
-#if defined(YDEBUG)
-            std::cerr << "RESERVE (" << n << ") - adding fragment, needed " <<
-            needed_size << " bytes, will allocate " << sz << "\n";
-#endif
-
-            add_fragment(sz);
+            const std::size_t needed_size = n - put_size();
+            add_fragment(constrain_fragment_size(needed_size));
 
         }
 
