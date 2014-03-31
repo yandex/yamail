@@ -404,8 +404,7 @@ public:
             inter_size_ -= (*get_active())->size();
 
             // extend get ptrs to the end of fragment
-            std::streambuf::setg(const_cast<char_type*>(split_point.pos_),
-                    const_cast<char_type*>(split_point.pos_),
+            std::streambuf::setg(split_point.pos_, split_point.pos_,
                     (*get_active())->end());
         }
 #if defined(YDEBUG)
