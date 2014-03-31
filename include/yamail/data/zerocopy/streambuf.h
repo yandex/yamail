@@ -299,8 +299,7 @@ public:
         const typename fragment_type::iterator get_begin = (*get_active())->begin();
         std::streambuf::setg(get_begin, get_begin, get_begin);
 
-        std::streambuf::setp((*put_active())->begin(), (*put_active())->end());
-        tail_size_ -= std::size_t(this->epptr() - this->pbase());
+        update_put();
     }
 
     iterator begin() const {
@@ -521,8 +520,7 @@ public:
             extend_get_area();
         } else {
             // FIXME: not optimal
-            std::streambuf::setg(this->eback(), this->gptr(),
-                    (*get_active())->end());
+            std::streambuf::setg(this->eback(), this->gptr(), (*get_active())->end());
         }
 
         if (size <= this->egptr() - this->gptr()) {
@@ -618,8 +616,7 @@ public:
 
         inter_size_ += n;
         tail_size_ -= (*put_active())->size();
-        std::streambuf::setp((*put_active())->begin() + n,
-                (*put_active())->end());
+        std::streambuf::setp((*put_active())->begin() + n, (*put_active())->end());
         promote_put_if_exist();
 #if defined(YDEBUG)
         PRINT_DEBUG (std::cerr);
@@ -759,6 +756,11 @@ protected:
         return n;
     }
 
+    void update_put() {
+        std::streambuf::setp((*put_active())->begin(), (*put_active())->end());
+        tail_size_ -= std::size_t(this->epptr() - this->pbase());
+    }
+
     // advance put active fragment
     void promote_put() {
 #if defined(YDEBUG)
@@ -783,8 +785,7 @@ protected:
         inter_size_ += std::size_t((*put_active())->end() - this->pbase());
         ++put_active_;
 
-        std::streambuf::setp((*put_active())->begin(), (*put_active())->end());
-        tail_size_ -= std::size_t(this->epptr() - this->pbase());
+        update_put();
 #if defined(YDEBUG)
         std::cerr << "PROMOTE_PUT () - OK\n";
         PRINT_DEBUG (std::cerr);
