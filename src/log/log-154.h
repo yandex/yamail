@@ -22,8 +22,6 @@
 
 YAMAIL_FQNS_LOG_BEGIN
 
-BOOST_LOG_GLOBAL_LOGGER_DEFAULT(global_logger, logger_t)
-
 using namespace YAMAIL_NS_COMPAT;
 namespace logging = boost::log;
 namespace fmt = boost::log::expressions;
@@ -31,6 +29,10 @@ namespace sinks = boost::log::sinks;
 namespace attrs = boost::log::attributes;
 namespace src = boost::log::sources;
 namespace expr = boost::log::expressions;
+namespace keywords = boost::log::keywords;
+
+//BOOST_LOG_GLOBAL_LOGGER_DEFAULT(global_logger, logger_t)
+BOOST_LOG_GLOBAL_LOGGER_CTOR_ARGS(global_logger, logger_t, (keywords::channel = "general"))
 
 static const char* levels[] =
 { "debug", "info", "notice", "warn", "error", "fatal", "alert", "emerg" };

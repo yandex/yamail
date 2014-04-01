@@ -6,7 +6,7 @@
 
 #include <boost/version.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <boost/log/sources/severity_logger.hpp>
+#include <boost/log/sources/severity_channel_logger.hpp>
 #include <boost/log/sources/global_logger_storage.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 
@@ -20,7 +20,7 @@ enum severity_level
   debug, info, notice, warning, error, fatal, alert, emerg, max_sev_level
 };
 
-typedef boost::log::sources::severity_logger_mt<severity_level> logger_t;
+typedef boost::log::sources::severity_channel_logger_mt<severity_level> logger_t;
 
 #if BOOST_VERSION < 104600
  BOOST_LOG_DECLARE_GLOBAL_LOGGER(global_logger, logger_t)
