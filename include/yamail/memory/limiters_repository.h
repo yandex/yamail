@@ -81,6 +81,9 @@ public:
      * Create composite limiter, consist of:
      *  global limiter
      *  session limiter
+     *  Args:
+     *   name = name of composite limiter
+     *   sn_name = name of local limiter
      */
     composite_limiter make_limiter(const std::string name = std::string(), const std::string sn_name = std::string("session"));
 

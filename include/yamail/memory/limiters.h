@@ -206,23 +206,14 @@ public:
     composite_limiter();
     explicit composite_limiter(compat::shared_ptr<impl> impl);
 
-    void acquire(size_t n) throw(limiter_exhausted)
-    { impl_->acquire(n); }
+    void acquire(size_t n) throw(limiter_exhausted);
+    void release(size_t n) _noexcept;
 
-    void release(size_t n) _noexcept
-    { impl_->release(n); }
+    void add(const limiter& limiter);
 
-    void add(const limiter& limiter)
-    { impl_->add(limiter); }
-
-    const std::string& name() const
-    { return impl_->name(); }
-
-    container limiters() const
-    { return impl_->limiters(); }
-
-    size_t used() const
-    { return impl_->used(); }
+    const std::string& name() const;
+    container limiters() const;
+    size_t used() const;
 
 private:
     compat::shared_ptr<impl> impl_;

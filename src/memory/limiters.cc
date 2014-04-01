@@ -186,6 +186,24 @@ composite_limiter::composite_limiter(compat::shared_ptr<impl> impl)
 {
 }
 
+void composite_limiter::acquire(size_t n) throw(limiter_exhausted)
+{ impl_->acquire(n); }
+
+void composite_limiter::release(size_t n) _noexcept
+{ impl_->release(n); }
+
+void composite_limiter::add(const limiter& limiter)
+{ impl_->add(limiter); }
+
+const std::string& composite_limiter::name() const
+{ return impl_->name(); }
+
+composite_limiter::container composite_limiter::limiters() const
+{ return impl_->limiters(); }
+
+size_t composite_limiter::used() const
+{ return impl_->used();}
+
 composite_limiter::impl::impl(const std::string& name, size_t reserve)
     :name_(name), used_(0)
 {
