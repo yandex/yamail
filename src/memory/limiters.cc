@@ -232,7 +232,7 @@ void composite_limiter::impl::acquire(size_t n) throw(limiter_exhausted)
     if(storage_.empty())
         return;
 
-    typedef typename container::iterator iterator;
+    typedef container::iterator iterator;
     iterator it = storage_.begin();
     iterator end = storage_.end();
     try
@@ -259,7 +259,7 @@ void composite_limiter::impl::release(size_t n) _noexcept
     scoped_lock lock(mutex());
     if(storage_.empty())
         return;
-    typedef typename container::iterator iterator;
+    typedef container::iterator iterator;
     iterator it = storage_.begin();
     iterator end = storage_.end();
     for(; it != end; it++)

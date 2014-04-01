@@ -61,7 +61,7 @@ private:
     typedef compat::weak_ptr<limiter::impl> limiter_impl_wptr;
 
     typedef std::map<const uid*, limiter_impl_wptr, less_uid> storage;
-    typedef typename storage::iterator iterator;
+    typedef storage::iterator iterator;
 
 public:
     static limiters_repository& inst();
