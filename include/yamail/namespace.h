@@ -20,7 +20,10 @@
 YAMAIL_NS_BEGIN 
 YAMAIL_NS_END
 
-namespace YAMAIL_NS_ALIAS = YAMAIL_FQNS;
-namespace YAMAIL_NS_ALIAS_SHORT = YAMAIL_FQNS;
+// namespace YAMAIL_NS_ALIAS = YAMAIL_FQNS;
+// namespace YAMAIL_NS_ALIAS_SHORT = YAMAIL_FQNS;
+
+namespace YAMAIL_NS_ALIAS { using namespace YAMAIL_FQNS; }
+namespace YAMAIL_NS_ALIAS_SHORT { using namespace YAMAIL_FQNS; }
 
 #endif // _YAMAIL_NAMESPACE_H_
