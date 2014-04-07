@@ -198,13 +198,17 @@ class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
 #endif
 public:
 
-    typedef typename allocator_type::template rebind<asio::mutable_buffer>::other mutable_buffers_allocator;
+    typedef typename allocator_type::template rebind<asio::mutable_buffer>::
+      other mutable_buffers_allocator;
 
-    typedef std::vector<asio::mutable_buffer, mutable_buffers_allocator> mutable_buffers_type;
+    typedef std::vector<asio::mutable_buffer, mutable_buffers_allocator> 
+      mutable_buffers_type;
 
-    typedef typename allocator_type::template rebind<asio::const_buffer>::other const_buffers_allocator;
+    typedef typename allocator_type::template rebind<asio::const_buffer>::
+      other const_buffers_allocator;
 
-    typedef std::vector<asio::const_buffer, const_buffers_allocator> const_buffers_type;
+    typedef std::vector<asio::const_buffer, const_buffers_allocator> 
+      const_buffers_type;
 
     template<typename T>
     struct iteratorT {
@@ -223,24 +227,28 @@ public:
         return allocator_;
     }
 
-    basic_streambuf(std::size_t min_fragmentation = 512,
-            std::size_t max_fragmentation = 1024 * 1024,
-            std::size_t start_fragments = 0    // defaults to 1
-            ,
-            std::size_t start_fragment_len = 0 // defaults to fragmentation
-            , std::size_t max_size = (std::numeric_limits<std::size_t>::max)(),
-            fragment_allocator_type const& fallocator =
-                    fragment_allocator_type(), allocator_type const& allocator =
-                    allocator_type()) :
-            size_(0), inter_size_(0), tail_size_(0), total_size_(0),
-            min_fragmentation_(
-                    min_fragmentation ? min_fragmentation : 512), max_fragmentation_(
-                    std::max(min_fragmentation_,
-                            max_fragmentation ?
-                                    max_fragmentation :
-                                    std::max<std::size_t>(min_fragmentation_,
-                                            1024 * 1024))), fallocator_(
-                    fallocator), allocator_(allocator), fragments_(allocator_) {
+    basic_streambuf(
+          std::size_t min_fragmentation = 512
+        , std::size_t max_fragmentation = 1024 * 1024
+        , std::size_t start_fragments = 0    // defaults to 1
+        , std::size_t start_fragment_len = 0 // defaults to fragmentation
+        , std::size_t max_size = (std::numeric_limits<std::size_t>::max)()
+        , fragment_allocator_type const& fallocator = fragment_allocator_type()
+        , allocator_type const& allocator = allocator_type()
+    ) : size_(0)
+      , inter_size_(0)
+      , tail_size_(0)
+      , total_size_(0)
+      , min_fragmentation_(min_fragmentation ? min_fragmentation : 512)
+      , max_fragmentation_(
+          std::max(min_fragmentation_, max_fragmentation
+            ? max_fragmentation 
+            : std::max<std::size_t>(min_fragmentation_, 1024 * 1024))
+        )
+      , fallocator_(fallocator)
+      , allocator_(allocator)
+      , fragments_(allocator_) 
+    {
         if (!start_fragment_len) {
             start_fragment_len = min_fragmentation_;
         }
@@ -260,10 +268,12 @@ public:
         AF af(allocator_);
 
         while (start_fragments--) {
-            fragments_.push_back(
-                boost::allocate_shared<fragment_type>(af, start_fragment_len, fallocator_));
+          fragments_.push_back(
+              boost::allocate_shared<fragment_type> (af, 
+                start_fragment_len, fallocator_)
+          );
 
-            tail_size_ += start_fragment_len;
+          tail_size_ += start_fragment_len;
         }
 
         total_size_ = put_size();
