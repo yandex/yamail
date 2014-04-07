@@ -155,7 +155,7 @@ fuzzy_limiter::fuzzy_limiter(size_t limit, const std::string& name)
 
 void fuzzy_limiter::acquire(size_t n) throw(limiter_exhausted)
 {
-    if(available_.fetch_sub(n) < static_cast<int64_t>(n))
+    if(available_.fetch_sub(n) < static_cast<uint64_t>(n))
     {
         available_.fetch_add(n);
         throw_exhausted();

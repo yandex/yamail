@@ -17,7 +17,8 @@ unsigned char get_local_ip_addr()
   hostent* h = gethostent();
   if (!h)
     return 0;
-  return h->h_addr[h->h_length - 1];
+
+  return static_cast<unsigned char> (h->h_addr[h->h_length - 1]);
 }
 
 const unsigned char LOCAL_IP_ADDRESS = get_local_ip_addr();
@@ -85,13 +86,15 @@ uniq_task_attr::impl::impl (std::string& val, const std::string& ini)
   value_.reserve(12);
   value_ += code_table[lt.tm_sec];
   value_ += code_table[lt.tm_min];
-  value_ += code_table[(lt.tm_hour + lt.tm_mday + lt.tm_mon) % code_table_size];
+  value_ += code_table[static_cast<unsigned long long> 
+      (lt.tm_hour + lt.tm_mday + lt.tm_mon) % code_table_size];
   value_ += code_table[(generated_value                 ) % code_table_size];
   value_ += code_table[(generated_value / single_divisor) % code_table_size];
   value_ += code_table[(generated_value / double_divisor) % code_table_size];
   value_ += code_table[(generated_value / triple_divisor) % code_table_size];
-  value_ += code_table[getpid() % code_table_size];
-  value_ += code_table[tid % code_table_size];
+  value_ += code_table[
+    static_cast<unsigned long long> (getpid()) % code_table_size];
+  value_ += code_table[static_cast<unsigned long long> (tid) % code_table_size];
   value_ += code_table[(reinterpret_cast<unsigned long long> (this)) % 
     code_table_size];
   value_ += code_table[(reinterpret_cast<unsigned long long> (this) + 

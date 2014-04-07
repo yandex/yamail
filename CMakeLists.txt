@@ -27,7 +27,7 @@ set(FLAGS
  "-Wpacked"
  "-Wredundant-decls"
  "-fexceptions"
- "-pthread"
+ # "-pthread" <- not present in clang
  "-fPIC"
  "-pipe"
 )
@@ -38,7 +38,7 @@ endforeach()
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 add_definitions(-DBOOST_LOG_DYN_LINK)
-find_package(Boost REQUIRED
+find_package(Boost 1.54 REQUIRED COMPONENTS 
     log
     log_setup
     filesystem
@@ -47,6 +47,8 @@ find_package(Boost REQUIRED
     regex
     chrono
 )
+add_definitions( -DBOOST_LOG_DYN_LINK )
+
 find_package(Threads REQUIRED)
 
 include_directories(${INCLUDE_DIR})
