@@ -64,56 +64,6 @@ class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
     typedef std::list<fragment_ptr, fragment_list_allocator> fragment_list;
     typedef typename fragment_list::const_iterator fragment_list_const_iterator;
 
-    // deallocator for shared_ptr
-    template<typename Al>
-    class deallocator {
-        // NB: the life time of deallocator may be longer than
-        // life time of the streambuf, so we cannot use reference here.
-        // If allocator copy will be costly, should use shared ptrs instead.
-        Al& alloc_;
-
-    public:
-        explicit deallocator(Al& a) : alloc_(a) {
-        }
-
-        template<typename T>
-        void operator()(T* t) {
-            alloc_.destroy(t);
-            alloc_.deallocate(t, 1);
-        }
-    };
-
-    // allocator guard - very similar to auto_ptr
-    template<typename T, typename A = std::allocator<T> >
-    class alloc_guard {
-        A alloc;
-        T* ptr;
-
-    public:
-        alloc_guard(T* t, A a = A()) : alloc(a), ptr(t) {
-        }
-
-        ~alloc_guard() {
-            if (ptr) {
-                alloc.destroy(ptr);
-                alloc.deallocate(ptr, 1);
-            }
-        }
-
-        T* get() {
-            return ptr;
-        }
-        T* release() {
-            T* tmp(ptr);
-            ptr = 0;
-            return tmp;
-        }
-        void reset(T* t = 0) {
-            alloc_guard tmp(t);
-            std::swap(*this, tmp);
-        }
-    };
-
     // private vars
 
     std::size_t max_size_;
@@ -142,8 +92,7 @@ class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
 
     // returns the occupied space by of fragment pointed by iterator 'iter'
     std::size_t fragment_size(fragment_list_const_iterator const& iter) const {
-        std::size_t size = detail::buffer_size(**iter);
-        return size;
+        return (*iter)->size();
     }
 
     std::size_t const& inter_size() const {
@@ -211,7 +160,7 @@ class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
             // print fragments between get and put
             fragment_list_const_iterator iter = get_active ();
             while (++iter != put_active ())
-            os << '[' << detail::buffer_size (**iter) << "] ";
+                os << '[' << (*iter)->size() << "] ";
 
             os << "[";
             if (this->pbase () != (*put_active ())->begin ())
@@ -237,8 +186,8 @@ class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
         fragment_list_const_iterator iter = put_active ();
         while (++iter != fragments_.end ())
         {
-            os << " [" << detail::buffer_size (**iter) << ']';
-            tail += detail::buffer_size (**iter);
+            os << " [" << (*iter)->size() << ']';
+            tail += (*iter)->size();
         }
 
         os << '\n';
@@ -311,13 +260,8 @@ public:
         AF af(allocator_);
 
         while (start_fragments--) {
-            alloc_guard<fragment_type> ptr(af.allocate(1));
-
-            new (static_cast<void*>(ptr.get())) fragment_type(
-                    start_fragment_len, fallocator_);
             fragments_.push_back(
-                    fragment_ptr(ptr.release(), deallocator<AF>(af),
-                            allocator_));
+                boost::allocate_shared<fragment_type>(af, start_fragment_len, fallocator_));
 
             tail_size_ += start_fragment_len;
         }
@@ -426,7 +370,7 @@ public:
         // remove everithing till cur_seg
         while (get_active() != split_point.cur_seg_) {
             assert(get_active() != put_active());
-            inter_size_ -= detail::buffer_size(**get_active());
+            inter_size_ -= (*get_active())->size();
             fragments_.pop_front();
         }
 
@@ -446,13 +390,13 @@ public:
 #if defined (YDEBUG)
             std::cerr << "DETACH_1: intersize: " <<
             inter_size_ << " -= " <<
-            detail::buffer_size (**get_active ()) << "\n";
+            (*get_active())->size() << "\n";
 #endif
             assert(split_point.cur_val_ >= (*get_active())->begin());
             assert(split_point.cur_val_ <= (*get_active())->end());
-            assert(inter_size_ >= detail::buffer_size(**get_active()));
+            assert(inter_size_ >= (*get_active())->size());
 
-            inter_size_ -= detail::buffer_size(**get_active());
+            inter_size_ -= (*get_active())->size();
 
             // extend get ptrs to the end of fragment
             std::streambuf::setg(const_cast<char_type*>(split_point.cur_val_),
@@ -505,7 +449,7 @@ public:
         if (iter != put_active()) {
             // add everithing until active put segment
             while (++iter != put_active()) {
-                sz = detail::buffer_size(**iter);
+                sz = (*iter)->size();
 
                 if (sz > 0)
                     cb.push_back(
@@ -544,7 +488,7 @@ public:
         }
 
         while (++iter != fragments_.end()) {
-            if ((sz = detail::buffer_size(**iter)) > 0) {
+            if ((sz = (*iter)->size()) > 0) {
                 mb.push_back(asio::mutable_buffer((*iter)->begin(), sz));
             }
         }
@@ -594,8 +538,8 @@ public:
         while (size > 0) {
             fragments_.pop_front();
 
-            if (size > detail::buffer_size(**get_active())) {
-                size -= detail::buffer_size(**get_active());
+            if (size > (*get_active())->size()) {
+                size -= (*get_active())->size();
             } else {
                 std::streambuf::setg((*get_active())->begin() + size,
                         (*get_active())->begin() + size,
@@ -653,7 +597,7 @@ public:
         assert(put_active_ != fragments_.end());
 
         std::size_t sz;
-        while ((sz = detail::buffer_size(**put_active())) < n) {
+        while ((sz = (*put_active())->size()) < n) {
 #if defined (YDEBUG)
             std::cerr << "CONSUME_3: intersize: " <<
             inter_size_ << " += " << sz << "\n";
@@ -665,11 +609,11 @@ public:
             assert(put_active_ != fragments_.end());
         }
 #if defined(YDEBUG)
-        std::cerr << "COMMIT_4, putsize=" << put_size () << ", tail_size=" << tail_size_ << ", buffer_size=" << detail::buffer_size (**put_active ()) << "\n";
+        std::cerr << "COMMIT_4, putsize=" << put_size () << ", tail_size=" << tail_size_ << ", buffer_size=" << (*put_active ())->size() << "\n";
 #endif
 
         inter_size_ += n;
-        tail_size_ -= detail::buffer_size(**put_active());
+        tail_size_ -= (*put_active())->size();
         std::streambuf::setp((*put_active())->begin() + n,
                 (*put_active())->end());
         promote_put_if_exist();
@@ -725,16 +669,8 @@ protected:
             needed_size << " bytes, will allocate " << sz << "\n";
 #endif
 
-            // allocate memory for fragment
-            alloc_guard<fragment_type> ptr(af.allocate(1));
-
-            // construct fragment with calculated size
-            new (static_cast<void*>(ptr.get())) fragment_type(sz, fallocator_);
-
             // add created fragment to list
-            fragments_.push_back(
-                    fragment_ptr(ptr.release(), deallocator<AF>(af),
-                            allocator_));
+            fragments_.push_back(boost::allocate_shared<fragment_type>(af, sz, fallocator_));
 
             // increment put_size
             tail_size_ += sz;

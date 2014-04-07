@@ -1,7 +1,13 @@
+ThirdParty/
 build/
 *.swp
 *.swo
 *.h-
+*.cmake
+CMakeFiles/
+Makefile
+CMakeCache.txt
+tests/main-test
 
 # Compiled Object files
 *.slo
