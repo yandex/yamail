@@ -7,6 +7,7 @@
 
 #include <boost/thread.hpp>
 #include <boost/static_assert.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <boost/log/core.hpp>
 #include <boost/log/sinks.hpp>
@@ -35,24 +36,55 @@ namespace keywords = boost::log::keywords;
 BOOST_LOG_GLOBAL_LOGGER_CTOR_ARGS(global_logger, logger_t, (keywords::channel = "general"))
 
 static const char* levels[] =
-{ "debug", "info", "notice", "warn", "error", "fatal", "alert", "emerg" };
+{ "emerg", "alert", "fatal", "error", "warn", "notice", "info", "debug" };
 
 static const std::size_t levels_size = sizeof (levels) / sizeof (*levels);
 
 static const char* levels_formatted[] =
 {
-    "debug ",
-    "info  ",
-    "notice",
-    "warn  ",
-    "error ",
-    "fatal ",
+    "emerg ",
     "alert ",
-    "emerg "
+    "fatal ",
+    "error ",
+    "warn  ",
+    "notice",
+    "info  ",
+    "debug "
 };
 
 BOOST_STATIC_ASSERT(levels_size == (sizeof (levels_formatted) / sizeof (*levels_formatted)));
-BOOST_STATIC_ASSERT(levels_size == static_cast<size_t>(max_sev_level));
+BOOST_STATIC_ASSERT(levels_size == static_cast<size_t>(end_of_sev_level));
+
+template <typename Settings, typename BackendPtr>
+shared_ptr<sinks::basic_formatting_sink_frontend<char> >
+make_frontend(Settings const& settings, BackendPtr& backend)
+{
+    typedef typename BackendPtr::element_type Backend;
+
+    shared_ptr<sinks::basic_formatting_sink_frontend<char> > forntend;
+
+#if !defined(BOOST_LOG_NO_THREADS)
+    // Asynchronous
+    bool async = false;
+    if (boost::optional<std::string> param = settings["Asynchronous"])
+    {
+        std::basic_istringstream<char> strm(param.get());
+        strm.setf(std::ios_base::boolalpha);
+        strm >> async;
+    }
+
+    // Construct the frontend, considering Asynchronous parameter
+    if (!async)
+        forntend = make_shared < sinks::synchronous_sink<Backend> > (backend);
+    else
+        forntend = make_shared < sinks::asynchronous_sink<Backend> > (backend);
+#else
+    // When multithreading is disabled we always use the unlocked sink frontend
+    forntend = make_shared< sinks::unlocked_sink< Backend > >(backend);
+#endif
+
+    return forntend;
+}
 
 
 class multifile_sink_factory : public logging::sink_factory< char >
@@ -161,6 +193,80 @@ class rotate_text_file_sink_factory: public logging::sink_factory<char>
     }
 };
 
+class syslog_native_sink_factory : public logging::sink_factory< char >
+{
+public:
+    shared_ptr< sinks::sink >
+    create_sink(settings_section const& settings)
+    {
+        sinks::syslog::facility facility = extract_facility(settings);
+
+        shared_ptr< sinks::syslog_backend > backend =
+            make_shared< sinks::syslog_backend >(
+                    keywords::facility = facility,
+                    keywords::use_impl = sinks::syslog::native );
+
+        backend->set_severity_mapper(sinks::syslog::direct_severity_mapping<severity_level>("Severity"));
+
+        shared_ptr<sinks::basic_formatting_sink_frontend<char> > sink = make_frontend(settings, backend);
+
+        if (boost::optional< std::string > param = settings["Filter"])
+            sink->set_filter(logging::parse_filter(param.get()));
+
+        if (boost::optional< std::string > param = settings["Format"])
+            sink->set_formatter(logging::parse_formatter(param.get()));
+
+        return sink;
+    }
+
+private:
+    sinks::syslog::facility extract_facility(settings_section const& settings)
+    {
+        boost::optional<std::string> param = settings["Facility"];
+        if(!param)
+            throw std::runtime_error("Facility parameter not specified for the syslog_native backend");
+
+        if(param.get().find_first_not_of("0123456789") != std::string::npos)
+            throw std::runtime_error("Facility parameter contains not only digits in syslog_native backend");
+
+        size_t facility = boost::lexical_cast<size_t>(param.get());
+        if(facility > 23)
+            throw std::runtime_error("Facility parameter out of ragne [0; 23] in syslog_native backend");
+
+        return static_cast<sinks::syslog::facility>(facility*8);
+    }
+};
+
+/*
+ * emerg(0) > debug(7)
+ * It's important for syslog
+ */
+class severity_filter_factory :
+    public logging::basic_filter_factory<char, severity_level>
+{
+public:
+
+    logging::filter on_less_relation(logging::attribute_name const& name, string_type const& arg)
+    {
+        return expr::attr< severity_level >(name) > boost::lexical_cast< severity_level >(arg);
+    }
+
+    logging::filter on_greater_relation(logging::attribute_name const& name, string_type const& arg)
+    {
+        return expr::attr< severity_level >(name) < boost::lexical_cast< severity_level >(arg);
+    }
+
+    logging::filter on_less_or_equal_relation(logging::attribute_name const& name, string_type const& arg)
+    {
+        return expr::attr< severity_level >(name) >= boost::lexical_cast< severity_level >(arg);
+    }
+
+    logging::filter on_greater_or_equal_relation(logging::attribute_name const& name, string_type const& arg)
+    {
+        return expr::attr< severity_level >(name) <= boost::lexical_cast< severity_level >(arg);
+    }
+};
+
 std::ostream& operator<<(std::ostream& os, severity_level const& lvl)
 {
     if (static_cast<std::size_t>(lvl) < levels_size)
@@ -191,7 +297,7 @@ std::istream& operator>>(std::istream& is, severity_level& lvl)
 void log_init(const boost::property_tree::ptree& cfg)
 {
     typedef logging::basic_formatter_factory<char, severity_level> severity_formatter_factory;
-    typedef logging::basic_filter_factory<char, severity_level> severity_filter_factory;
+    //typedef logging::basic_filter_factory<char, severity_level> severity_filter_factory;
 
     logging::register_formatter_factory("Severity",
             make_shared<severity_formatter_factory>());
@@ -202,6 +308,8 @@ void log_init(const boost::property_tree::ptree& cfg)
             make_shared<multifile_sink_factory>());
     logging::register_sink_factory("RotateTextFile",
             make_shared<rotate_text_file_sink_factory>());
+    logging::register_sink_factory("SyslogNative",
+            make_shared<syslog_native_sink_factory>());
 
     log_load_cfg(cfg);
     shared_ptr < logging::core > pCore = logging::core::get();

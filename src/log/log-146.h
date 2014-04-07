@@ -9,6 +9,7 @@
 #include <boost/thread.hpp>
 
 #include <boost/log/core.hpp>
+#include <boost/log/sinks.hpp>
 #include <boost/log/utility/init/to_console.hpp>
 
 #include <boost/log/sources/global_logger_storage.hpp>
@@ -44,15 +45,31 @@ BOOST_LOG_GLOBAL_LOGGER_CTOR_ARGS(global_logger, logger_t, (boost::log::keywords
 using namespace YAMAIL_NS_COMPAT;
 namespace logging = boost::log;
 namespace fmt = boost::log::formatters;
-namespace flt = boost::log::filters;
+namespace filters = boost::log::filters;
 namespace sinks = boost::log::sinks;
 namespace attrs = boost::log::attributes;
 namespace src = boost::log::sources;
+namespace keywords = boost::log::keywords;
 
 static const char* levels[] =
+{ "emerg", "alert", "fatal", "error", "warn", "notice", "info", "debug" };
+
+static const std::size_t levels_size = sizeof (levels) / sizeof (*levels);
+
+static const char* levels_formatted[] =
 {
-  "debug", "info", "notice", "warn", "error", "fatal", "alert", "emerg"
+    "emerg ",
+    "alert ",
+    "fatal ",
+    "error ",
+    "warn  ",
+    "notice",
+    "info  ",
+    "debug "
 };
+
+BOOST_STATIC_ASSERT(levels_size == (sizeof (levels_formatted) / sizeof (*levels_formatted)));
+BOOST_STATIC_ASSERT(levels_size == static_cast<size_t>(end_of_sev_level));
 
 shared_ptr< sinks::sink< char > >
 create_multifile_sink(std::map< std::string, boost::any > const& params)
@@ -154,39 +171,147 @@ create_rotate_text_file_sink(std::map< std::string, boost::any > const& params)
   return p;
 }
 
-static const std::size_t levels_size = sizeof (levels) / sizeof (*levels);
 
-std::ostream&
-operator<< (std::ostream& os, severity_level const& lvl)
+template <typename Settings, typename BackendPtr>
+shared_ptr<sinks::basic_sink_frontend<char> >
+make_frontend(Settings const& params, BackendPtr& backend)
 {
-  if (static_cast<std::size_t>(max_sev_level) <= levels_size)
-  {
-    os << levels[lvl];
-    for (std::size_t l = ::strlen (levels[lvl]); l < 6; ++l)
-      os << ' ';
-  }
-  else
-    os << '#' << lvl << '#';
+    typedef typename BackendPtr::element_type Backend;
 
-  return os;
+    shared_ptr<sinks::basic_sink_frontend<char> > forntend;
+
+#if !defined(BOOST_LOG_NO_THREADS)
+    // Asynchronous
+    bool async = false;
+    typedef std::map< std::string, boost::any > params_t;
+    params_t::const_iterator it = params.find("Asynchronous");
+    if (it != params.end())
+    {
+        std::string str = boost::any_cast<std::string>(it->second);
+        std::basic_istringstream<char> strm(str);
+        strm.setf(std::ios_base::boolalpha);
+        strm >> async;
+    }
+
+    // Construct the frontend, considering Asynchronous parameter
+    if (!async)
+        forntend = make_shared < sinks::synchronous_sink<Backend> > (backend);
+    else
+        forntend = make_shared < sinks::asynchronous_sink<Backend> > (backend);
+#else
+    // When multithreading is disabled we always use the unlocked sink frontend
+    forntend = make_shared< sinks::unlocked_sink< Backend > >(backend);
+#endif
+
+    return forntend;
 }
 
-std::istream&
-operator>> (std::istream& is, severity_level& lvl)
+sinks::syslog::facility extract_facility(std::map< std::string, boost::any > const& params)
 {
-  std::string str;
-  is >> str;
+    typedef std::map< std::string, boost::any > params_t;
+    params_t::const_iterator it = params.find("Facility");
+    if (it == params.end())
+        throw std::runtime_error("Facility parameter not specified for the syslog_native backend");
 
-  for (std::size_t i = 0; i < levels_size; ++i)
-  {
-    if (str == levels[i])
+    std::string facility_str = boost::any_cast<std::string>(it->second);
+    if(facility_str.find_first_not_of("0123456789") != std::string::npos)
+        throw std::runtime_error("Facility parameter contains not only digits in syslog_native backend");
+
+    size_t facility = boost::lexical_cast<size_t>(facility_str);
+    if(facility > 23)
+        throw std::runtime_error("Facility parameter out of ragne [0; 23] in syslog_native backend");
+
+    return static_cast<sinks::syslog::facility>(facility*8);
+}
+
+
+shared_ptr< sinks::sink< char > >
+create_syslog_native_sink(std::map< std::string, boost::any > const& params)
+{
+    sinks::syslog::facility facility = extract_facility(params);
+
+    shared_ptr< sinks::syslog_backend > backend =
+        make_shared< sinks::syslog_backend >(
+                keywords::facility = facility,
+                keywords::use_impl = sinks::syslog::native );
+
+    typedef std::map< std::string, boost::any > params_t;
+    params_t::const_iterator it = params.find("Format");
+    if (it != params.end())
     {
-      lvl = static_cast<severity_level> (i);
-      return is;
+        std::string str = boost::any_cast<std::string>(it->second);
+        backend->set_formatter(logging::parse_formatter(str));
     }
-  }
 
-  throw std::runtime_error (std::string ("bad severity level: ") + str);
+    backend->set_severity_mapper(sinks::syslog::direct_severity_mapping<severity_level>("Severity"));
+
+    shared_ptr<sinks::basic_sink_frontend<char> > sink = make_frontend(params, backend);
+
+    it = params.find("Filter");
+    if (it != params.end())
+    {
+        std::string str = boost::any_cast<std::string>(it->second);
+        sink->set_filter(logging::parse_filter(str));
+    }
+
+    return sink;
+}
+
+/*
+ * emerg(0) > debug(7)
+ * It's important for syslog
+ */
+class severity_filter_factory :
+    public logging::basic_filter_factory<char, severity_level>
+{
+public:
+
+    filter_type on_less_relation(string_type const& name, string_type const& arg)
+    {
+        return filters::attr< severity_level >(name) > boost::lexical_cast< severity_level >(arg);
+    }
+
+    filter_type on_greater_relation(string_type const& name, string_type const& arg)
+    {
+        return filters::attr< severity_level >(name) < boost::lexical_cast< severity_level >(arg);
+    }
+
+    filter_type on_less_or_equal_relation(string_type const& name, string_type const& arg)
+    {
+        return filters::attr< severity_level >(name) >= boost::lexical_cast< severity_level >(arg);
+    }
+
+    filter_type on_greater_or_equal_relation(string_type const& name, string_type const& arg)
+    {
+        return filters::attr< severity_level >(name) <= boost::lexical_cast< severity_level >(arg);
+    }
+};
+
+std::ostream& operator<<(std::ostream& os, severity_level const& lvl)
+{
+    if (static_cast<std::size_t>(lvl) < levels_size)
+        os << levels_formatted[lvl];
+    else
+        os << '#' << static_cast<unsigned int>(lvl) << '#';
+
+    return os;
+}
+
+std::istream& operator>>(std::istream& is, severity_level& lvl)
+{
+    std::string str;
+    is >> str;
+
+    for (std::size_t i = 0; i < levels_size; ++i)
+    {
+        if (str == levels[i])
+        {
+            lvl = static_cast<severity_level>(i);
+            return is;
+        }
+    }
+    throw std::runtime_error(std::string("bad severity level: ") + str);
+    return is; // hide compiler warnings
 }
 
 logging::formatter_types< char >::formatter_type
@@ -235,8 +360,6 @@ void log_init (const boost::property_tree::ptree& cfg)
   logging::register_formatter_factory("Severity", &severity_formatter_factory);
   logging::register_formatter_factory("LineID", &lineid_formatter_factory);
 
-  typedef logging::basic_filter_factory<char, severity_level> severity_filter_factory;
-
   shared_ptr<severity_filter_factory> sp (new severity_filter_factory);
   logging::register_filter_factory<char> ("Severity", sp);
   {
@@ -250,8 +373,14 @@ void log_init (const boost::property_tree::ptree& cfg)
       std::map< std::string, boost::any > const&
     > func2 (boost::bind (&create_rotate_text_file_sink, _1));
 
+    boost::log::aux::light_function1<
+      shared_ptr< sinks::sink< char > >,
+      std::map< std::string, boost::any > const&
+    > func3 (boost::bind (&create_syslog_native_sink, _1));
+
     logging::register_sink_factory("MultiFile", func1);
     logging::register_sink_factory("RotateTextFile", func2);
+    logging::register_sink_factory("SyslogNative", func3);
   }
   log_load_cfg(cfg);
   shared_ptr< logging::core > pCore = logging::core::get();

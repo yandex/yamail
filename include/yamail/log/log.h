@@ -17,7 +17,7 @@ void log_load_cfg(const boost::property_tree::ptree& cfg);
 
 enum severity_level
 {
-  debug, info, notice, warning, error, fatal, alert, emerg, max_sev_level
+    emerg, alert, fatal, error, warning, notice, info, debug, end_of_sev_level
 };
 
 typedef boost::log::sources::severity_channel_logger_mt<severity_level> logger_t;

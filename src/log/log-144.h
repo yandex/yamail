@@ -45,9 +45,24 @@ namespace attrs = boost::log::attributes;
 namespace src = boost::log::sources;
 
 static const char* levels[] =
+{ "emerg", "alert", "fatal", "error", "warn", "notice", "info", "debug" };
+
+static const std::size_t levels_size = sizeof (levels) / sizeof (*levels);
+
+static const char* levels_formatted[] =
 {
-  "debug", "info", "notice", "warn", "error", "fatal", "alert", "emerg"
+    "emerg ",
+    "alert ",
+    "fatal ",
+    "error ",
+    "warn  ",
+    "notice",
+    "info  ",
+    "debug "
 };
+
+BOOST_STATIC_ASSERT(levels_size == (sizeof (levels_formatted) / sizeof (*levels_formatted)));
+BOOST_STATIC_ASSERT(levels_size == static_cast<size_t>(end_of_sev_level));
 
 boost::shared_ptr< sinks::sink< char > >
 create_multifile_sink(std::map< std::string, std::string > const& params)
@@ -152,37 +167,31 @@ create_rotate_text_file_sink(std::map< std::string, std::string > const& params)
 
 static const std::size_t levels_size = sizeof (levels) / sizeof (*levels);
 
-std::ostream&
-operator<< (std::ostream& os, severity_level const& lvl)
+std::ostream& operator<<(std::ostream& os, severity_level const& lvl)
 {
-  if (static_cast<std::size_t>(max_sev_level) <= levels_size)
-  {
-    os << levels[lvl];
-    for (std::size_t l = ::strlen (levels[lvl]); l < 6; ++l)
-      os << ' ';
-  }
-  else
-    os << '#' << lvl << '#';
+    if (static_cast<std::size_t>(lvl) < levels_size)
+        os << levels_formatted[lvl];
+    else
+        os << '#' << static_cast<unsigned int>(lvl) << '#';
 
-  return os;
+    return os;
 }
 
-std::istream&
-operator>> (std::istream& is, severity_level& lvl)
+std::istream& operator>>(std::istream& is, severity_level& lvl)
 {
-  std::string str;
-  is >> str;
+    std::string str;
+    is >> str;
 
-  for (std::size_t i = 0; i < levels_size; ++i)
-  {
-    if (str == levels[i])
+    for (std::size_t i = 0; i < levels_size; ++i)
     {
-      lvl = static_cast<severity_level> (i);
-      return is;
+        if (str == levels[i])
+        {
+            lvl = static_cast<severity_level>(i);
+            return is;
+        }
     }
-  }
-
-  throw std::runtime_error (std::string ("bad severity level: ") + str);
+    throw std::runtime_error(std::string("bad severity level: ") + str);
+    return is; // hide compiler warnings
 }
 
 logging::formatter_types< char >::formatter_type
