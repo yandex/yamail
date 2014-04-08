@@ -39,7 +39,7 @@ set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 add_definitions(-DBOOST_LOG_DYN_LINK)
 add_definitions(-DBOOST_LOG_USE_NATIVE_SYSLOG)
-find_package(Boost 1.54 REQUIRED COMPONENTS 
+find_package(Boost 1.53 REQUIRED COMPONENTS 
     log
     log_setup
     filesystem
