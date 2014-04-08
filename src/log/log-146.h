@@ -3,6 +3,14 @@
 #include <fstream>
 #include <map>
 
+#ifndef SYSLOG_NAMES
+#define SYSLOG_NAMES
+#include <sys/syslog.h>
+#undef SYSLOG_NAMES
+#else
+#include <sys/syslog.h>
+#endif
+
 #include <yamail/log/rotate_text_file_backend.h>
 #include <yamail/compat/shared_ptr.h>
 
@@ -213,15 +221,17 @@ sinks::syslog::facility extract_facility(std::map< std::string, boost::any > con
     if (it == params.end())
         throw std::runtime_error("Facility parameter not specified for the syslog_native backend");
 
-    std::string facility_str = boost::any_cast<std::string>(it->second);
-    if(facility_str.find_first_not_of("0123456789") != std::string::npos)
-        throw std::runtime_error("Facility parameter contains not only digits in syslog_native backend");
+    std::string facility = boost::any_cast<std::string>(it->second);
+    for(size_t i=0; ; i++)
+    {
+        if(!facilitynames[i].c_name)
+            throw std::runtime_error("Facility parameter contains not proper value in syslog_native backend");
 
-    size_t facility = boost::lexical_cast<size_t>(facility_str);
-    if(facility > 23)
-        throw std::runtime_error("Facility parameter out of ragne [0; 23] in syslog_native backend");
+        if(facility == std::string(facilitynames[i].c_name))
+            return sinks::syslog::make_facility(facilitynames[i].c_val);
+    }
 
-    return static_cast<sinks::syslog::facility>(facility*8);
+    return sinks::syslog::local7; // hide warnings
 }
 
 
