@@ -48,7 +48,7 @@ class basic_streambuf: public std::basic_streambuf<CharT, Traits>,
         boost::noncopyable {
 public:
     typedef CharT char_type;
-private:
+protected:
     typedef Traits traits_type;
     typedef FragmentAlloc fragment_allocator_type;
     typedef Alloc allocator_type;
@@ -64,7 +64,7 @@ private:
 
     typedef std::list<fragment_ptr, fragment_list_allocator> fragment_list;
     typedef typename fragment_list::const_iterator fragment_list_const_iterator;
-
+private:
     // private vars
 
     std::size_t max_size_;
@@ -462,7 +462,7 @@ public:
             }
 
             // add put_active segment
-            char_type const* ptr = detail::buffer_cast<char_type*>(**iter);
+            char_type const* ptr = detail::buffer_cast<char_type const*>(**iter);
             std::size_t sz = this->pptr() - ptr;
 
             if (sz > 0) {
@@ -625,6 +625,10 @@ public:
     }
 
 protected:
+    const fragment_list & fragments() const {
+        return fragments_;
+    }
+
     void promote_put_if_exist() {
         if (this->epptr() > this->pptr()
                 || (&(*put_active_) == &fragments_.back())) {
