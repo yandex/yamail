@@ -150,26 +150,27 @@ size_t strict_limiter::available() const
 
 fuzzy_limiter::fuzzy_limiter(size_t limit, const std::string& name)
     : limiter::impl(limit, name)
-    , available_(limit)
+    , used_(0)
 {}
 
 void fuzzy_limiter::acquire(size_t n) throw(limiter_exhausted)
 {
-    if(available_.fetch_sub(n) < static_cast<uint64_t>(n))
+    if(used_.fetch_add(n) > (limit() - n))
     {
-        available_.fetch_add(n);
+        used_.fetch_sub(n);
         throw_exhausted();
     }
 }
 
 void fuzzy_limiter::release(size_t n) _noexcept
 {
-    available_.fetch_add(n);
+    used_.fetch_sub(n);
 }
 
 size_t fuzzy_limiter::available() const
 {
-    return available_;
+    size_t used = used_;
+    return used > limit() ? 0 : limit() - used;
 }
 
 /* ****************************************************************************

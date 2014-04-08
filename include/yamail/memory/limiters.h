@@ -156,7 +156,7 @@ public:
     size_t available() const;
 
 private:
-    boost::atomic<uint64_t> available_;
+    boost::atomic<uint64_t> used_;
 };
 
 /*

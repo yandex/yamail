@@ -434,7 +434,7 @@ TEST(limited_allocator, composite_strict_limiter)
         groups.push_back(make_basic_limiter(make_mb(4), "group_1")); // will exhausted
         groups.push_back(make_basic_limiter(make_mb(4), "group_2")); // will exhausted
         groups.push_back(make_basic_limiter(make_mb(6), "group_3"));
-        ASSERT_TRUE((test_composite_limiter<composite_strict_limiter, fuzzy_limiter>(5, global, groups)));
+        ASSERT_TRUE((test_composite_limiter<composite_strict_limiter, basic_limiter>(5, global, groups)));
 
         composite_limiter composite = make_composite_strict_limiter();
         composite.add(global);
