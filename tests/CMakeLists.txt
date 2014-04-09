@@ -30,6 +30,8 @@ include_directories(${source_dir}/include)
 
 ExternalProject_Get_Property(googletest binary_dir)
 set( GTEST_LIBRARIES ${binary_dir}/${CMAKE_FIND_LIBRARY_PREFIXES}gtest.a )
+set( GTEST_LIBRARY ${GTEST_LIBRARIES})
+set( GTEST_MAIN_LIBRARY ${binary_dir}/${CMAKE_FIND_LIBRARY_PREFIXES}gtest_main.a )
 
 
 # Add gtest
@@ -66,18 +68,13 @@ find_package(Boost
 REQUIRED)
 
 include_directories(${Boost_INCLUDE_DIRS})
-set(LIBS ${LIBS} ${Boost_LIBRARIES})
+set(LIBS ${LIBS} ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTESTS_DIR=\\\"${CMAKE_CURRENT_SOURCE_DIR}\\\"")
 
 add_subdirectory(data)
 add_subdirectory(memory)
 
-# Add test executable target
-add_executable(main-test main.cc dummy-test.cc)
-add_dependencies(main-test googletest googlemock)
-target_link_libraries( main-test ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES} )
-
 add_custom_target( check
-    COMMAND main-test
-    COMMAND zerocopy-test )
+    COMMAND zerocopy-test
+    COMMAND memory-test )
