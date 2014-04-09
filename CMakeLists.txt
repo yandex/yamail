@@ -27,6 +27,7 @@ set(FLAGS
  "-Wpacked"
  "-Wredundant-decls"
  "-fexceptions"
+ # You don't need it. Use 'find_package(Threads REQUIRED)' from cmake
  # "-pthread" <- not present in clang
  "-fPIC"
  "-pipe"
@@ -63,7 +64,10 @@ target_link_libraries(${TARGET_LIBRARY}
 )
 set_target_properties(${TARGET_LIBRARY} PROPERTIES SOVERSION 0 VERSION 0.0)
 
-add_subdirectory(tests)
+if(CMAKE_BUILD_TEST)
+    enable_testing()
+    add_subdirectory(tests)
+endif(CMAKE_BUILD_TEST)
 
 # CREATE PKGCONFIG FILES
 # we use the same files like ./configure, so we have to set its vars
