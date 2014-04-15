@@ -25,15 +25,15 @@ struct rref_impl
 	rref_impl () = delete;
 	rref_impl (T&& x) : x { std::move (x) } {}
 	rref_impl (rref_impl& other)
-	  : x { std::move (other.x) }
-	  , is_copied { true }
+	  : x (std::move (other.x))
+	  , is_copied (true)
 	{
 		assert (other.is_copied == false);
 	}
 
 	rref_impl (rref_impl&& other)
-	  : x { std::move (other.x) }
-	  , is_copied { std::move (other.is_copied }
+	  : x (std::move (other.x))
+	  , is_copied (std::move (other.is_copied))
 	{
 	}
 

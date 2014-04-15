@@ -4,6 +4,7 @@
 #include <yamail/utility/namespace.h>
 
 #include <utility>
+#include <type_traits>
 
 YAMAIL_NS_BEGIN
 YAMAIL_NS_UTILITY_BEGIN
@@ -13,35 +14,75 @@ YAMAIL_NS_UTILITY_BEGIN
 //  auto lambda = capture (std::move (p), 
 //    [] (std::unique_ptr<int>& p) { return std::move (p); });
 
-template <typename F, typename F>
+#if 0
+template <typename T, typename F>
 class capture_impl
 {
 	T x;
 	F f;
+
 public:
   capture_impl (T&& x, F&& f)
-    : x { std::forward<T> (x) }
-    , f { std::forward<F> (f) }
+    : x ( std::forward<T> (x) )
+    , f ( std::forward<F> (f) )
   {}
 
   template <typename ...Ts> auto operator() (Ts&& ...args)
       -> decltype (f (x, std::forward<Ts> (args)...))
   {
-  	return f (x, std::forward<Ts> (args)...));
+  	return f (x, std::forward<Ts> (args)...);
   }
 
   template <typename ...Ts> auto operator() (Ts&& ...args) const
       -> decltype (f (x, std::forward<Ts> (args)...))
   {
-  	return f (x, std::forward<Ts> (args)...));
+  	return f (x, std::forward<Ts> (args)...);
   }
 };
 
 /// move lambda capture emulation for c++11 
 template <typename T, typename F>
-capture_impl<T,F> capture (T&& x, F&& f)
+capture_impl<T,F> 
+capture (T&& x, F&& f)
 {
 	return capture_impl<T,F> (std::forward<T> (x), std::forward<F> (f));
+}
+#endif
+namespace detail {
+
+template <typename T, typename F>
+class capture_impl
+{
+	typename std::decay<T>::type x;
+	F f;
+
+public:
+  capture_impl (T&& x, F&& f)
+    : x ( std::forward<T> (x) )
+    , f ( std::forward<F> (f) )
+  {}
+
+  template <typename ...Ts> auto operator() (Ts&& ...args)
+      -> decltype (f (x, std::forward<Ts> (args)...))
+  {
+  	return f (x, std::forward<Ts> (args)...);
+  }
+
+  template <typename ...Ts> auto operator() (Ts&& ...args) const
+      -> decltype (f (x, std::forward<Ts> (args)...))
+  {
+  	return f (x, std::forward<Ts> (args)...);
+  }
+};
+
+}
+
+/// move lambda capture emulation for c++11 
+template <typename T, typename F>
+detail::capture_impl<T,F> 
+capture (T&& x, F&& f)
+{
+	return detail::capture_impl<T,F> (std::forward<T> (x), std::forward<F> (f));
 }
 
 YAMAIL_NS_UTILITY_END
