@@ -22,7 +22,10 @@ using boost::exception_ptr;
 using boost::rethrow_exception;
 using boost::current_exception;
 
-template <class E> exception_ptr make_exception_ptr (E e) noexcept {
+template <class E> 
+exception_ptr 
+make_exception_ptr (E e) noexcept 
+{
   try { throw e; }
   catch (...) { return current_exception (); }
 }
