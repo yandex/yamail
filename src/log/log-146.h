@@ -364,6 +364,20 @@ lineid_formatter_factory(
   }
 }
 
+// Attribute interface class
+class pid: public attrs::constant<pid_t>
+{
+    typedef attrs::constant<pid_t> base_type;
+public:
+    pid(): base_type(getpid())
+    {
+    }
+    // Attribute casting support
+    explicit pid(attrs::cast_source const& source): base_type(source)
+    {
+    }
+};
+
 void log_init (const boost::property_tree::ptree& cfg)
 {
   logging::register_formatter_factory("ThreadID", &thread_id_formatter_factory);
@@ -396,6 +410,7 @@ void log_init (const boost::property_tree::ptree& cfg)
   shared_ptr< logging::core > pCore = logging::core::get();
   pCore->add_global_attribute("Scope", attrs::named_scope());
   pCore->add_global_attribute("Tag", attrs::named_scope());
+  pCore->add_global_attribute("PID", pid());
 
   logging::add_common_attributes();
 }

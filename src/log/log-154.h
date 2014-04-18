@@ -212,7 +212,8 @@ public:
         shared_ptr< sinks::syslog_backend > backend =
             make_shared< sinks::syslog_backend >(
                     keywords::facility = facility,
-                    keywords::use_impl = sinks::syslog::native );
+                    keywords::use_impl = sinks::syslog::native);
+                    //keywords::ident = "");
 
         backend->set_severity_mapper(sinks::syslog::direct_severity_mapping<severity_level>("Severity"));
 
@@ -304,10 +305,23 @@ std::istream& operator>>(std::istream& is, severity_level& lvl)
     return is; // hide compiler warnings
 }
 
+// Attribute interface class
+class pid: public attrs::constant<unsigned short>
+{
+    typedef attrs::constant<unsigned short> base_type;
+public:
+    pid(): base_type(static_cast<unsigned short>(attrs::current_process_id().get().native_id()))
+    {
+    }
+    // Attribute casting support
+    explicit pid(attrs::cast_source const& source): base_type(source)
+    {
+    }
+};
+
 void log_init(const boost::property_tree::ptree& cfg)
 {
     typedef logging::basic_formatter_factory<char, severity_level> severity_formatter_factory;
-    //typedef logging::basic_filter_factory<char, severity_level> severity_filter_factory;
 
     logging::register_formatter_factory("Severity",
             make_shared<severity_formatter_factory>());
@@ -325,6 +339,7 @@ void log_init(const boost::property_tree::ptree& cfg)
     shared_ptr < logging::core > pCore = logging::core::get();
     pCore->add_global_attribute("Scope", attrs::named_scope());
     pCore->add_global_attribute("Tag", attrs::named_scope());
+    pCore->add_global_attribute("PID", pid());
 
     logging::add_common_attributes();
 }
