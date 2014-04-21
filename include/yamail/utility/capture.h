@@ -3,86 +3,64 @@
 #include <yamail/config.h>
 #include <yamail/utility/namespace.h>
 
+#include <yamail/utility/apply.h>
+
 #include <utility>
+#include <tuple>
 #include <type_traits>
 
 YAMAIL_NS_BEGIN
 YAMAIL_NS_UTILITY_BEGIN
 
 // Usage: 
-//  std::unique_ptr<int> p {...};
-//  auto lambda = capture (std::move (p), 
-//    [] (std::unique_ptr<int>& p) { return std::move (p); });
+//  std::unique_ptr<int> p {...}, q {...};
+//  auto lambda = capture (
+//    [] (std::unique_ptr<int>& p, std::unique_ptr<int>& q) 
+//    { return std::move (p); },
+//    std::move (p), std::move (q));
 
-#if 0
-template <typename T, typename F>
-class capture_impl
-{
-	T x;
-	F f;
-
-public:
-  capture_impl (T&& x, F&& f)
-    : x ( std::forward<T> (x) )
-    , f ( std::forward<F> (f) )
-  {}
-
-  template <typename ...Ts> auto operator() (Ts&& ...args)
-      -> decltype (f (x, std::forward<Ts> (args)...))
-  {
-  	return f (x, std::forward<Ts> (args)...);
-  }
-
-  template <typename ...Ts> auto operator() (Ts&& ...args) const
-      -> decltype (f (x, std::forward<Ts> (args)...))
-  {
-  	return f (x, std::forward<Ts> (args)...);
-  }
-};
-
-/// move lambda capture emulation for c++11 
-template <typename T, typename F>
-capture_impl<T,F> 
-capture (T&& x, F&& f)
-{
-	return capture_impl<T,F> (std::forward<T> (x), std::forward<F> (f));
-}
-#endif
 namespace detail {
 
-template <typename T, typename F>
+template <typename F, typename... T>
 class capture_impl
 {
-	typename std::decay<T>::type x;
-	F f;
+	template <class U> struct transform;
+	template <class... U> struct transform <std::tuple<U...> >
+	{
+		typedef std::tuple<typename std::decay<U>::type ...> type;
+  };
+
+	typename transform<std::tuple<T...> >::type t;
+	F f; // Should we copy "f" also?
 
 public:
-  capture_impl (T&& x, F&& f)
-    : x ( std::forward<T> (x) )
-    , f ( std::forward<F> (f) )
+  capture_impl (F&& f, T&& ...t)
+    : f ( std::forward<F> (f) )
+    , t ( std::forward_as_tuple (t...) )
   {}
 
   template <typename ...Ts> auto operator() (Ts&& ...args)
-      -> decltype (f (x, std::forward<Ts> (args)...))
+      -> decltype (apply (f, t, std::forward<Ts> (args)...))
   {
-  	return f (x, std::forward<Ts> (args)...);
+  	return apply (f, t, std::forward<Ts> (args)...);
   }
 
   template <typename ...Ts> auto operator() (Ts&& ...args) const
-      -> decltype (f (x, std::forward<Ts> (args)...))
+      -> decltype (apply (f, t, std::forward<Ts> (args)...))
   {
-  	return f (x, std::forward<Ts> (args)...);
+  	return apply (f, t, std::forward<Ts> (args)...);
   }
 };
 
 }
 
 /// move lambda capture emulation for c++11 
-template <typename T, typename F>
-detail::capture_impl<T,F> 
-capture (T&& x, F&& f)
+template <typename F, typename T0, typename ...Ts>
+detail::capture_impl<F,T0,Ts...> 
+capture (F&& f, T0&& t0, Ts&& ...ts)
 {
-	return detail::capture_impl<T,F> (std::forward<T> (x), std::forward<F> (f));
+	return detail::capture_impl<F,T0,Ts...> (std::forward<F> (f), 
+	    std::forward<T0> (t0), std::forward<Ts> (ts)...);
 }
 
 YAMAIL_NS_UTILITY_END
