@@ -30,8 +30,8 @@ class capture_impl
 		typedef std::tuple<typename std::decay<U>::type ...> type;
   };
 
+	typename std::decay<F>::type f;
 	typename transform<std::tuple<T...> >::type t;
-	F f; // Should we copy "f" also?
 
 public:
   capture_impl (F&& f, T&& ...t)
