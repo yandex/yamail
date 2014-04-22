@@ -4,7 +4,7 @@
 #include <yamail/compat/config.h>
 #include <yamail/compat/namespace.h>
 
-#if defined(HAVE_STD_SHARED_PTR)
+#if defined(HAVE_STD_SHARED_PTR) && HAVE_STD_SHARED_PTR
 # include <memory>
 #else 
 # include <boost/shared_ptr.hpp>
@@ -14,7 +14,7 @@
 
 YAMAIL_FQNS_COMPAT_BEGIN
 
-#if defined(HAVE_STD_SHARED_PTR)
+#if defined(HAVE_STD_SHARED_PTR) && HAVE_STD_SHARED_PTR
 using std::shared_ptr;
 using std::weak_ptr;
 using std::make_shared;

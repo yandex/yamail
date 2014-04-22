@@ -1,0 +1,63 @@
+** Version 20080503
+
+-Minor fixes to documentation, including some conversion of < to &lt; etc. -
+thanks Oliver
+-Removed/deprecated cancel() capability - too much complexity.
+-Added #include <boost/version.hpp> and fixed boost version to 103500 in
+exception_ptr_impl.hpp 
+-Created seperate header for future_exceptions.hpp, and added those exceptions
+to set of caught exceptions in exception_ptr_impl.hpp - thanks Oliver
+
+** Version 20080413
+
+-Added function signatures and documentation for all future/promise methods
+to future-doc.html
+
+** Version 20080409
+
+-Wrote documentation
+
+-Changed set_cancel_handler() to call the passed handler immediately if future
+has already been canceled.
+
+-Changed add_callback() to call the callback immediately if the future has
+already been fulfilled.
+
+-Changed future_stream to support a more stl iterator-like interface,
+including begin() and end()
+
+-Wrote example1.cpp to support documentation
+
+** Version 20070731
+
+-Modified future::add_callback() to return a class callback_reference, which can be used to remove all callback later.
+
+-Added future::remove_callback(callback_reference &) to permit a user to remove a callback they added previously with add_callback()
+
+-Changed behavior of callbacks.  Callbacks were already guaranteed to be called no more than once.  Now the instances of all registered callbacks is removed after they are called.  This allows a callback functor to contain a reference to the future with which it is registered, but be assured that it will be removed before the future is destroyed, thus avoiding a reference loop.  This works because a future is always set() before it is destroyed, even if only by a broken_promise exception.
+
+-Fixed minor leak in future_group (by changing the above callback behavior)
+
+** Version 20070629 released on 29 June 2007
+
+-Improved promise::set_exception to properly re-throw arbitrary types of
+exceptions. -bcg
+
+-Added promise::set_current_exception, which will rethrow the current
+exception, using a best-effort to match the exception to a known
+std::exception subclass. -bcg
+
+-Added further exception handling test cases -bcg
+
+-Added most stdexcept exception types to be automatically detected by
+promise::set_current_exception() -bcg
+
+-Added a default constructor for future().  The default constructor
+immediately sets the future with a broken_promise exception (since there is no
+promise to ever set it to a valid value).  A default constructed future is
+really only useful for assignment to another future instance which has been
+constructed from a valid promise.  A default constructor has proven convenient
+in some cases. -bcg
+
+ChangeLog Started 29 June 2007
+----

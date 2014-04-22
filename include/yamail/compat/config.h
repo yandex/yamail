@@ -2,7 +2,17 @@
 #define _YAMAIL_COMPAT_CONFIG_H_
 #include <yamail/config.h>
 
-#if _cplusplus >= 201103L
+// define YAMAIL_COMPAT_USE_BOOST to use boost libraries everywhere
+
+#if __cplusplus >= 201300L
+# define YAMAIL_COMPAT_CPP_VERSION 201400L
+#elif __cplusplus >= 201103L
+# define YAMAIL_COMPAT_CPP_VERSION 201100L
+#else
+# define YAMAIL_COMPAT_CPP_VERSION 200300L
+#endif
+
+#if !defined(YAMAIL_COMPAT_USE_BOOST) && YAMAIL_COMPAT_CPP_VERSION >= 201400L
 // C++ 14
 # if !defined(HAVE_STD_MAKE_UNIQUE)
 #  define HAVE_STD_MAKE_UNIQUE 1
@@ -13,7 +23,7 @@
 # endif
 #endif
 
-#if _cplusplus >= 201103L
+#if !defined(YAMAIL_COMPAT_USE_BOOST) && YAMAIL_COMPAT_CPP_VERSION >= 201100L
 // C++ 11
 # if !defined(HAVE_STD_BIND)
 #  define HAVE_STD_BIND 1

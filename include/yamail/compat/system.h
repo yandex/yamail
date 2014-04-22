@@ -4,16 +4,16 @@
 #include <yamail/compat/config.h>
 #include <yamail/compat/namespace.h>
 
-#if defined(HAVE_STD_SYSTEM)
+#if defined(HAVE_STD_SYSTEM) && HAVE_STD_SYSTEM
 # include <system_error>
 #else 
-# include <boost/error_code.hpp>
-# include <boost/system_error.hpp>
+# include <boost/system/error_code.hpp>
+# include <boost/system/system_error.hpp>
 #endif // HAVE_STD_SYSTEM
 
 YAMAIL_FQNS_COMPAT_BEGIN
 
-#if defined(HAVE_STD_SYSTEM)
+#if defined(HAVE_STD_SYSTEM) && HAVE_STD_SYSTEM
 using std::system_error;
 using std::error_code;
 using std::error_condition;
@@ -27,18 +27,18 @@ using std::errc;
 using std::is_error_code_enum;
 using std::is_error_condition_enum;
 #else
-using boost::system_error;
-using boost::error_code;
-using boost::error_condition;
-using boost::error_category;
-using boost::make_error_code;
-using boost::make_error_condition;
-using boost::generic_category;
-using boost::system_category;
-using boost::errc;
+using boost::system::system_error;
+using boost::system::error_code;
+using boost::system::error_condition;
+using boost::system::error_category;
+using boost::system::errc::make_error_code;
+using boost::system::errc::make_error_condition;
+using boost::system::generic_category;
+using boost::system::system_category;
+namespace compat::errc = ::boost::system::errc;
 
-using boost::is_error_code_enum;
-using boost::is_error_condition_enum;
+using ::boost::system::is_error_code_enum;
+using ::boost::system::is_error_condition_enum;
 #endif
 
 YAMAIL_FQNS_COMPAT_END 

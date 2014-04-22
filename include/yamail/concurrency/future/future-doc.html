@@ -1,0 +1,1388 @@
+<?xml version="1.0" encoding="utf-8"?>
+<html>
+  <head>
+    <title>Boost.Future</title>
+  </head>
+  <body>
+
+    <h1>Boost.Future</h1>
+	<em>By Braddock Gaskill (braddock@braddock.com), April 2008</em><br/>
+
+	<p><em> Copyright (c) 2007-2008 Braddock Gaskill Distributed under the
+	  Boost Software License, Version 1.0. (See accompanying file
+	  LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+	</em></p> 
+
+	<h2> Download</h2>
+
+	<p><a href="current.tgz">Current Download Version</a></p>
+	<p><a href="current/">Browse Current Version Online</a></p>
+
+
+	<h2>Contents</h2>
+
+	<ul>
+	  <li>Download</li>
+	  <li>Background and Purpose</li>
+	  <li><a href="#Tutorial">Future Concepts Tutorial</a></li> 
+	  <ul>
+	    <li>Introduction</li>
+	    <li>Prerequisites</li>
+	    <li>Motivating Example</li>
+	    <li>Promises, Promises: How to set a future value</li>
+	    <li>Reference Semantics</li>
+	    <li>Exception Handling and Transport</li>
+	    <li>Putting together the pieces: JobQueue Defined</li>
+	    <li>Broken Promises</li>
+	    <li>Future Type Conversion</li>
+	    <li>future&lt;void&gt;</li>
+	    <li>Callbacks</li>
+	    <li>Guards</li>
+	    <li>Lazy Futures</li>
+	    <li>Operators</li>
+	    <li>Future Streams</li> 
+	  </ul>
+	  <li><a href="#api">Future and Promise API</a></li>
+	  <ul>
+	    <li>future&lt;R&gt;</li>
+	    <ul>
+	      <li>future&lt;R&gt; Constructors and Assignment</li>
+	      <li>future&lt;R&gt; Status and Waiting Methods</li>
+	      <li>future&lt;R&gt; Callbacks</li>
+	      <li>future&lt;R&gt;: Accessors and Lazy Request</li>
+	    </ul>
+	    <li>future&lt;void&gt; Specialization</li>
+	    <li>future&lt;R&&gt; Reference Specialization</li>
+	    <li>promise&lt;R&gt; </li>
+	    <li>promise&lt;void&gt; Void Type Specialization</li>
+	    <li>promise&lt;R&amp;&gt; Reference Type Specialization</li>
+	    <li>future_stream&lt;T&gt;</li>
+	    <ul>
+	      <li>future_stream&lt;T&gt;::iterator</li>
+	    </ul>
+	    <li>promise_stream&lt;T&gt;</li>
+	    <li>Operators</li>
+	  </ul>
+	  <li><a href="#Features">Features</a></li>
+	  <li>References and Acknowledgements</li>
+	  <li>Frequency Asked Questions</li>
+	</ul>
+
+	<h2>Background and Purpose</h2>
+
+    <p> The goal of the boost.future library is to provide a definitive
+      future implementation with the best features of the numerous
+      implementations, proposals, and academic papers floating around, in the
+      hopes to avoid multiple incompatible future implementations in libraries
+      of related concepts (coroutines, active objects, asio, etc).  This
+      library hopes to explore the combined implementation of the best future
+      concepts.</p>
+
+      <p>Programmers are struggling with increasing concurrency in a multi-core world.
+      There is an increasing awareness that a mutex and a condition variable are
+      simply not sufficient for reliable, complex, highly concurrent software.  In
+      the search for higher level asynchronous primitives, perhaps the
+      "future" is the most powerful concept to gain recent popularity.</p>
+
+      <p>A future is a special kind of variable which has an undefined value when it is
+      created.  Later, and only once, the future is "bound" to a value.  Any attempt
+      to use the variable value before it is bound results in the calling thread
+      blocking until the value is set in another thread.  The operations on the
+      variable itself are thread-safe.</p>
+
+      <p>The futures concept is gaining momentum very quickly.  Multiple proposals are
+      already being considered by the C++ standards committee.  Implementations are
+      springing up in multiple candidates for the Boost libraries.  Sun's Java SE 5.0
+      introduced a standard future class in their concurrency package.</p>
+
+      <p>Futures are not actually new.  They have been well studied in academia and used
+      in niche dataflow programming languages for well over 20 years.  In the past
+      they have gone by different names and variations including "single-assignment
+      variables", "logic variables", or "definitional variables".  Fortunately, they
+      are now gaining mainstream awareness.</p>
+
+      <a name="Tutorial"/>
+      <h2>Future Concepts Tutorial</h2> 
+
+      <h3>Introduction</h3>
+
+    <p>Future variables are a concurrency concept which decouple the
+      definition of a variable (ie, y = f(x)) from the evaluation of the
+      variable's value (ie, the execution of f(x) itself).  Futures have been
+      well studied in computer science for over 20 years, in one form or
+      another.  However, it is only recently that mainstream interest in
+      futures has been spurred on by the need for multi-core concurrency.</p>
+
+    <p>C++ is a so-called <emphasis>"strict evaluation"</emphasis>
+      language...variables are evaluated as soon as their value is defined.
+      So, for instance, in the C++ statement <emphasis><code>int y =
+	  f(x);</code></emphasis>, f(x) is immediately called within the
+      current thread and the result is assigned to y.</p>
+
+    <p>Other strategies for function evaluation exist in other languages,
+      and are extremely useful in concurrent applications.  But these
+      constructs are not supported directly by C++.  boost.futures permits the
+      use of non-immediate variable evaluation strategies within C++.  These
+      include deferred evaluation, lazy evaluation, evaluation in another
+      thread, network-transparent remote procedure calls, or evaluation
+      according to a user-defined strategy.</p>
+
+      <h3>Prerequisites</h3>
+
+      <p>This tutorial will work through the major concepts and uses for
+      Futures, providing explanation coupled tightly with code examples.  All
+      code snippets can be seen in a working executable context in the included
+      <code>example1.cpp</code> file.</p>
+
+      <p>All code assumes the following header:</p>
+
+      <pre><code>
+#include "future.hpp"
+#include "future_stream.hpp"
+#include &lt;boost/thread/mutex.hpp&gt;
+#include &lt;boost/bind.hpp&gt;
+#include &lt;boost/thread.hpp&gt;
+#include &lt;boost/shared_ptr.hpp&gt;
+#include &lt;vector&gt;
+
+using boost::future;
+using boost::promise;
+using boost::shared_ptr;
+using boost::future_wrapper;
+</code></pre>
+
+    <h3>Motivating Example</h3>
+
+    <p>Let's start with a useful scenario:</p>
+
+    <p>Imagine we have a job queue class called JobQueue.  JobQueue is very
+    simple, and has two methods <code>schedule()</code> and
+    <code>exec_loop()</code>.  We will define JobQueue in a later section.
+    <code>schedule()</code> takes a function as an argument, and places the
+    function in a queue.  <code>exec_loop()</code> is called from another
+    thread, and executes any functions placed into the queue.  We use a
+    <code>boost::function</code> object to hold the function, which enables us
+    to also use boost::bind() to bind arguments to the function.</p>
+
+    <p>This JobQueue as described is useful for dispatching work to other
+      threads, and boost::function allows us to bind and pass arbitrary
+      functions or methods for execution.  However, there is no mechanism to
+      return function results or function exceptions.  There is also no
+      mechanism for on-demand execution only when the function result is
+      required.  All of this can be done with boost::future.</p>
+
+    <p>Let us then introduce the templated class future&lt;T&gt;.  If T=int,
+      than a future&lt;int&gt; holds an integer variable whose value may or may
+      not yet be defined.  We now declare our future-enabled JobQueue class.
+      We'll be reviewing the full definition a little later.</p>
+
+    <pre><code>
+class JobQueue {
+  public:
+    template &lt;class T&gt;
+      future&lt;T&gt; schedule(boost::function&lt;T (void)&gt; const& fn)
+       ...;
+    void exec_loop();
+};
+    </code></pre>
+
+    <p>An example of using this future JobQueue class:</p>
+
+    <pre><code>
+int add(int a, int b) {
+  return a+b;
+}
+
+void f1() {
+  JobQueue1 q;
+  boost::thread t(boost::bind(&JobQueue1::exec_loop, &q));
+  future&lt;int&gt; fut = q.schedule&lt;int&gt;(boost::bind(add, 11, 13));
+  std::cout &lt;&lt; "add = " &lt;&lt; fut.get() &lt;&lt; "\n";
+}
+    </code></pre>
+
+    <p>This snippet of code creates a JobQueue, then launches a seperate
+      thread to run the JobQueue::exec_loop() routine.  A call to add(11,13) is
+      then queued for evaluation.  schedule() returns a future&lt;int&gt; named fut.
+	fut contains an integer variable which has not yet been assigned a
+	value.  The future&lt;int&gt; will be set with the return value of
+	add(11,13) when it executes. </p>
+
+	<p>However, on the very next line we attempt to print the value of fut
+	to cout.  fut.get() will return the int value for fut.  If the value
+	for fut has not yet been set (because, for instance, the
+	JobQueue::exec_loop has not yet finished executing it), then the get()
+	call will block the calling thread until the value has been set.</p>
+
+      <p>There are three ways to wait for and retrieve the value from a
+	boost::future.  fut.get(), fut(), and fut are all equivalent in most
+	contexts.  fut alone is an implicit conversion - if a future&lt;int&gt; is
+	  put within the context of an int, it will implicitly convert itself
+	  to its value.  Thus, <code>std::cout &lt;&lt; fut &lt;&lt; "\n"
+	</code> will also write 24.</p>
+
+	<p>boost::future supports all three forms of value retrieval because
+	  there is significant debate within the C++ community about the
+	  prefered convention.  The author personally prefers the more explicit
+	  get() method, because the <b>implicit conversion can become
+	    ambiguous and unclear in some cases.</b></p>
+
+	  <h3>Promises, Promises: How to set a future value</h3>
+
+	  <p>We have seen how to use a future object when that future is set by
+	  someone else (our example JobQueue class above).  But how do we
+	  create and set a future object?</p>
+
+	  <p>boost::future uses a split interface: the
+	  <code>promise&lt;T&gt;</code> class interface is used for creating
+	  and setting a future value, and the <code>future&lt;T&gt;</code>
+	  interface is used for obtaining and using a future value.  This
+	  unusual split design offers significant resiliency to subtle logical
+	  errors which would otherwise deadlock the program, as we shall see.</p>
+
+	  <p>A simple (although no very useful) example which creates and
+	  sets a future value:</p>
+
+	  <pre><code>
+  promise&lt;int&gt; prom; //create a promise
+  future&lt;int&gt; fut(prom); //create the associated future
+  assert(!fut.ready()); // future is not ready yet
+  prom.set(42); // set the future value
+  assert(fut.ready()); // the future is SET
+  std::cout &lt;&lt; fut.get() &lt;&lt; "\n"; // print the future value
+</code></pre>
+
+    <p>This code example creates a new promise, then creates a future which
+    references that promise.  The code then checks if the future is ready - ie,
+    whether the future has been set yet.  It is not, since the promise
+    interface has not yet set a value.  Finally the promise is used to set the
+    future to 42, we assert that the future is ready, and print the value.</p>
+
+    <h3>Reference Semantics</h3>
+
+    <p>Futures and promises have <em>reference semantics</em>.  This means that
+    multiple instances of future&lt;T&gt; and promise&lt;T&gt; may refer to the same
+    underlying object.  The underlying future instance is a reference counted
+    type, and is not destroyed until all future&lt;T&gt; and promise&lt;T&gt; references to
+    that object are destroyed.  future&lt;T&gt; and promise&lt;T&gt; instances are really
+    just handles to an underlying Future object.</p>
+
+    <pre><code>
+  promise&lt;int&gt; p1;
+  promise&lt;int&gt; p2(p1); // p2 refers to same object as p1
+  future&lt;int&gt; f1(p1); // refers to same future object as p1 and p2
+  future&lt;int&gt; f2(p2); // again, all these refer to the same objects
+  p2.set(99);
+  assert(f1.get() == f2.get()); // true
+  assert(f1.get() == 99); //see, I told you 
+    </code></pre>
+
+    <h3>Exception Handling and Transport</h3>
+
+    <p>In C++, functions may return values, or they may throw exceptions.
+    Futures support both outcomes .. ie, they can contain values, or they can
+    contain exceptions.  This permits the handling of C++ exceptions across threads
+    - something that is cumbersome at best in a multi-threaded message passing
+    or job queue system.</p>
+
+<pre><code>
+  promise&lt;long&gt; p1;
+  future&lt;long&gt; f1;
+  p1.set_exception(std::runtime_error("Darn Error"));
+  try {
+    std::cout &lt;&lt; f1.get() &lt;&lt; "\n"; // print my future
+    std::cout &lt;&lt; "This will never print - exception thrown\n";
+  } catch (std::exception &e) {
+    std::cout &lt;&lt; "Received Exception: " &lt;&lt; e.what() &lt;&lt; "\n";
+    assert(f1.has_exception()); // I could have seen this coming before
+  }
+</code></pre>
+
+    <p>The elegant utility of exception transport can be vividly demonstrated
+    using our JobQueue scenario above:</bp>
+
+    <pre><code>
+char GetChar(std::string const& s, unsigned int pos) {
+  return s.at(pos); // will throw std::out_of_range if pos > s.size()
+}
+
+void f5() {
+  JobQueue1 q;
+  boost::thread t(boost::bind(&JobQueue1::exec_loop, &q));
+
+  std::string s("Hi!");
+  future&lt;char&gt; f = q.schedule&lt;char&gt;(boost::bind(GetChar, s, 999)); //oops!
+  try {
+    std::cout &lt;&lt; "GetChar = " &lt;&lt; f.get() &lt;&lt; "\n";
+  } catch (std::exception &e) {
+    std::cout &lt;&lt; "Exception in remote GetChar(): " &lt;&lt; e.what() &lt;&lt; " [this is okay]\n";
+  }
+}
+</code></pre>
+
+    <p>The above code will print "ERROR: Exception in remote
+    GetChar(): basic_string::at" (with GCC 4.1.2), because from
+    the other thread we passed 999 as the string position argument to a string
+    of length 3.  Note that we also could have caught the std::out_of_range
+    exception class if we expected it, but since we didn't expect it we
+    caught its' parent std::exception class instead.</p>
+
+    <p>The ability to transfer exceptions across threads is limited in C++.  It
+    involves the copying of a caught exception, which may actually be a slice
+    of a user-implemented sub-class.  The C++ standards body is currently
+    considering ways to rectify this (see references).  In the meanwhile,
+    <b>future exceptions are still extremely useful - but the user should be
+      aware of their limitations.</b></p>
+
+    <p>Exception types supported include all C++ standard exception types, such
+    as std::runtime_error, std::io_base::failure, etc.  In addition, all
+    boost.thread library exception types are supported.  For a precise list of
+    supported exception types, see source file exception_ptr_impl.hpp.</p>
+
+    <p>However, arbitrary user-defined exception types cannot be supported.
+    Any unknown user-defined exception types which derive from the base class
+    std::exception will be turned into a std::runtime_error, but with the same
+    what() message field, or else be sliced to their closest parent class.  If
+    a user-defined exception class is encountered which does not derive from
+    std::exception, the future will throw a std::bad_exception instead.</p>
+
+    <h3>Putting together the pieces: JobQueue Defined</h3>
+
+    <p>We now know everything we need to know to implement our simple JobQueue
+    class.</p>
+
+    <pre><code>
+class JobQueue1 {
+  public:
+    template &lt;class T&gt;
+      future&lt;T&gt; schedule(boost::function&lt;T (void)&gt; const& fn) {
+	boost::mutex::scoped_lock lck(mutex_);
+	promise&lt;T&gt; prom; // create promise
+	q_.push_back(future_wrapper&lt;T&gt;(fn, prom)); //queue the job
+	condition_.notify_all(); // wake worker thread(s)
+	return future&lt;T&gt;(prom); // return a future created from the promise
+      }
+    void exec_loop();
+    JobQueue1() : waiting_for_god_(false), active_threads_(0) {}
+    ~JobQueue1() { // we must kill thread before we're dead
+      boost::mutex::scoped_lock lck(mutex_);
+      waiting_for_god_ = true; // flag to tell thread to die
+      condition_.notify_all();
+      while (active_threads_) // all threads must exit
+	condition_.wait(lck);
+    }
+  protected:
+    bool waiting_for_god_;
+    int active_threads_;
+    std::list&lt;boost::function&lt;void ()&gt; &gt; q_;
+    boost::mutex mutex_;
+    boost::condition condition_; // signal we wait for when queue is empty
+};
+
+void JobQueue1::exec_loop() {
+  boost::mutex::scoped_lock lck(mutex_);
+  ++active_threads_;
+  while (true) {
+    while ((q_.size() == 0) && !waiting_for_god_)
+      condition_.wait(lck); // wait for a job to be added to queue
+    if (waiting_for_god_) {
+      --active_threads_;
+      condition_.notify_all();
+      return;
+    }
+    boost::function&lt;void ()&gt; f = q_.front();
+    q_.pop_front();
+    lck.unlock(); // unlock the queue while we exec the job
+    f(); // call the future_wrapper functor
+    lck.lock();
+  }
+}
+    </code></pre>
+
+    <p>Class JobQueue makes use of one convenience class we have not yet
+    introduced: <code>boost::future_wrapper&lt;T&gt;</code>.  Future wrapper is a
+    simple functor class which contains a boost::function and a promise as
+    members.  When the future_wrapper is called using the
+    <code>future_wrapper::operator()()</code>, it tries to execute the
+    function, and sets the promise to the result of the function.</p>
+
+    <p><code>future_wrapper::operator()()</code> is defined in future.hpp as:</p> 
+
+    <pre><code>
+      void operator()() throw() { // executes fn() and places the outcome into ft
+	try {
+	  ft_.set(fn_());
+	} catch (...) {
+	  ft_.set_exception(detail::current_exception());
+	}
+      }
+    </code></pre>
+
+    <h3>Broken Promises</h3>
+
+    <p>A primary benefit of the boost.future split future/promise design is
+    the automatic detection of "broken promises" - ie, dangling unset futures
+    for which no promise exists.</p>
+
+    <p>A corresponding <code>promise&lt;T&gt;</code> object must exit for a future&lt;T&gt;
+    instance to have its value set - there is no other interface to set a
+    future value.  There is no way to derive a promise&lt;T&gt; interface from the
+    future&lt;T&gt; interface.  Thus, if a thread attempts to wait on a future&lt;T&gt; for
+    which no promise&lt;T&gt; exists, the call will throw a
+    <code>boost::broken_promise</code> exception.</p>
+
+<pre><code>
+future&lt;int&gt; make_future() {
+  promise&lt;int&gt; prom;
+  return future&lt;int&gt;(prom);
+} //oops, future created but promise goes out of scope here!
+
+void f6() {
+  future&lt;int&gt; f = make_future();
+  try {
+    std::cout &lt;&lt; f.get() &lt;&lt; "\n"; // wait for future to be ready and print value
+    assert(0x0); // Will never get here because the promise was broken
+  } catch (boost::broken_promise &e) {
+    // Here I am.  Silly me, my logic was flawed.
+  }
+}
+</code></pre>
+
+    <h3>Future Type Conversion</h3>
+
+    <p>future&lt;T&gt; can be constructed from a future&lt;Y&gt as
+    long as type T is constructable or assignable from Y.  Both
+    references will refer to the same future instance, only the value
+    will be automatically converted in
+    future&lt;T&gt;::get().</p>
+
+    <pre><code>
+  promise&lt;long&gt; plong;
+  future&lt;long&gt; flong(plong);
+  future&lt;int&gt; fint = flong;
+  plong.set(27L);
+  assert(fint.get() == 27); //automatically converted to int
+</code></pre>
+
+    <h3>future&lt;void&gt;</h3>
+
+    <p>A <code>future&lt;void&gt;</code> class is a future which returns no value.
+    This may seem useless, but it is actually extremely useful.  In the context
+    of our example JobQueue class, a future&lt;void&gt; allows you to call functions
+    which do not return value without changing any code.  It also allows you to
+    receive exceptions from these void functions.  future&lt;void&gt;::ready()
+    will tell you when the function call has been completed.</p>
+
+    <p>future&lt;void&gt;::get() returns a void, but will still flag a lazy
+    future for execution, and will block until the future&lt;void&gt; is set. </p>
+
+    <p>A <code>future&lt;void&gt;</code> can be constructed from a future of any
+    other type.  This permits type-agnostic code to use a future&lt;void&gt; in cases
+    where the return value is not relevant.</p>
+
+<pre><code>
+promise&lt;int&gt; pi;
+future&lt;int&gt; fi;
+future&lt;void&gt; fv = fi;
+</code></pre>
+
+    <h3>Callbacks</h3>
+
+    <p>It is sometimes desirable to have a function called when a future is
+    set.  This provides notification that the future value is ready.  A
+    callback can be added to a future using the
+    <code>future&lt;T&gt;::add_callback()</code> function.</p>
+
+    <pre><code>
+void callfunc(future&lt;int&gt; f) {
+  std::cout &lt;&lt; "Future is ready with value = " &lt;&lt; f.get() &lt;&lt; "\n";
+}
+
+void f9() {
+  promise&lt;int&gt; pi;
+  future&lt;int&gt; f(pi);
+  boost::callback_reference cb_ref1 = f.add_callback(boost::bind(callfunc, f));
+  pi.set(33); // my callback will print "Future is ready" now
+}
+</code></pre>
+
+    <p>The callback can be removed later using the returned callback_reference
+    handle and the future::remove_callback() function.</p>
+
+    <p>You may worry that we are creating a circular reference by setting
+    callfunc as the callback for f, after binding f to the function.  Since a
+    future is a reference counted type, this would be a problem.  However, it
+    is not a problem because of our split future/promise design.</p>
+
+    <p>When a boost::future is set with a value or exception, it immediately
+    calls and then removes all registered callbacks.  A future will ALWAYS be
+    set with a boost::broken_promise exception when the last associated promise
+    goes out of scope.  Therefore, binding a future to a callback does not
+    create a lasting circular reference, since as soon as the last promise
+    instance goes out of scope, the future will be set with an exception and
+    the callback will be removed.</p>
+
+    <p>Note that add_callback() will IMMEDIATELY invoke the callback if the
+    future has already been fulfilled.  This is done to avoid race conditions
+    in which the  future may or may not be set when add_callback() is invoked.
+    This avoid the situation where the user may set a callback on a future
+    which has just been set and the callback would never be called.</p>
+
+    <p><em>THEORY NOTE:</em> Note that callbacks are really not within the
+    spirit or theory of Futures.  Most academic future research has used custom
+    languages which include job schedulers.  These schedulers include the use
+    of "guards" on function invocations, which eliminate the need for wait
+    states or callbacks.  This type of scheduler can and should be implemented
+    using the boost.future library.  However, a guarded task scheduler is
+    well outside of the scope of this library.</p>
+
+    <h3>Guards</h3>
+
+    <p>A <em>Guard</em> is a concept that relies upon Futures, but which is
+    implemented in a scheduler, not futures themselves.  We will cover guards
+    here because they are a very powerful mechanism in scheduler design.</p>
+
+    <p>A Guard is a future variable which is associated with a task queued in a
+    scheduler.  The task will not execute until the Guard future is set.
+    Because a Guard is a future, and because our queued functions set futures
+    when they complete, the Guard mechanism permits us to establish dependency
+    relationships among our scheduled tasks.  It also allows us to schedule
+    chains of execution.</p>
+
+    <p>To understand better, lets add a simple Guard capability to our JobQueue
+    class:</p>
+
+    <pre><code>
+class JobQueue3 : public JobQueue2 {
+  public:
+    template &lt;class T&gt;
+    void queueWrapped(boost::function&lt;void (void)&gt; fn, promise&lt;T&gt; prom) {
+      boost::mutex::scoped_lock lck(mutex_);
+      q_.push_back(fn);
+      condition_.notify_all();
+    }
+
+    template &lt;class T&gt;
+      future&lt;T&gt; schedule(boost::function&lt;T (void)&gt; const& fn, future&lt;void&gt; guard = future&lt;void&gt;()) {
+	promise&lt;T&gt; prom; // create promise
+	future_wrapper&lt;T&gt; wrap(fn,prom); 
+	guard.add_callback(boost::bind(&JobQueue3::queueWrapped&lt;T&gt;, this, wrap, prom));
+	return future&lt;T&gt;(prom); // return a future created from the promise
+      }
+};
+</code></pre>
+
+    <p>Now that we have added a Guard capability to JobQueue, we can specify
+    some great things, such as passing a chain of operations to be performed,
+    each dependent on the prior operation, even though we have two worker
+    threads processing the queue and cannot otherwise guarantee the processing
+    order.</p>
+
+<pre><code>
+int Add(int a, int b) {
+  return a+b;
+}
+
+void f10() {
+  JobQueue3 q;
+  boost::thread t1(boost::bind(&JobQueue3::exec_loop, &q));
+  boost::thread t2(boost::bind(&JobQueue3::exec_loop, &q));
+  future&lt;int&gt; fa = q.schedule&lt;int&gt;(boost::bind(Add, 1, 2));
+  future&lt;int&gt; fb = q.schedule&lt;int&gt;(boost::bind(Add, fa, 3), fa); // fa + 3, Guarded on completion of a
+  future&lt;int&gt; fc = q.schedule&lt;int&gt;(boost::bind(Add, fb, 4), fb); // fb + 4, Guarded on completion of b
+  std::cout &lt;&lt; "1 + 2 + 3 + 4 = " &lt;&lt; fc.get() &lt;&lt; "\n";
+}
+
+</code></pre>
+
+    <h3>Lazy Futures</h3>
+
+    <p>A Lazy Future support lazy evaluation .. ie, evaluation only when a user
+    is trying to obtain the value of a future.  To implement Lazy Future
+    functionality, we need to provide a signal when the user is either blocking
+    on a future to be fulfilled in a get() or wait() call, or explicitly
+    specifies that the future will soon be needed.</p> 
+    
+    <p>Boost.Future provides four function calls to expose this information.</p>  
+    
+    <p><code>bool promise::is_needed()</code> - return true if the future value is needed.</p>
+    <p><code>future&lt;void&gt; promise::get_needed_future()</code> - Returns a future which becomes set when the first future is needed.</p>
+    <p><code>void future::set_needed()</code> - explicitly specifies that the future is needed and should be evaluated.</p>
+    <p><code>void promise::wait_until_needed()</code> - blocks until the future value is needed. (equiv to get_needed_future().wait())</p>
+
+<pre><code>
+class JobQueue4 : public JobQueue3 {
+  public:
+    template&lt;class T&gt;
+      future&lt;T&gt; lazy_schedule(boost::function&lt;T (void)&gt; const& fn) {
+	promise&lt;T&gt; prom; // create promise
+	future&lt;void&gt; guard = prom.get_needed_future(); // we treat this as the guard
+	future_wrapper&lt;T&gt; wrap(fn,prom); 
+	guard.add_callback(boost::bind(&JobQueue3::queueWrapped&lt;T&gt;, this, wrap, prom));
+	return future&lt;T&gt;(prom); // return a future created from the promise
+      }
+};
+</code></pre>
+
+    <p>The above code adds a <code>lazy_schedule</code> method to our JobQueue
+    class.  lazy_schedule is identical to our guarded schedule function call,
+    except that we treat the promise::get_needed_future() as the guard.</p>
+
+<pre><code>
+int Mult(int a, int b) {
+  return a*b;
+}
+
+void f11() {
+  JobQueue4 q;
+  boost::thread t1(boost::bind(&JobQueue4::exec_loop, &q));
+  future&lt;float&gt; squares[100];
+  for (int i=0; i&lt;100; ++i)
+    squares[i] = q.lazy_schedule&lt;float&gt;(boost::bind(Mult, i, i)); // this won't execute until we need the result
+
+  // print just a few select squares, which will be computed as we go
+  for (int i=0; i&lt;100; i+=7)
+    std::cout &lt;&lt; i &lt;&lt; "^2 = " &lt;&lt; squares[i].get() &lt;&lt; "\n";
+  // anything we didnt ask for was not computed, like squares[5]
+  assert(!squares[5].ready());
+}
+</code></pre>    
+
+    <p>Among many other things, Lazy Futures can be used to implement a kind of
+    <em>memoization</em> pattern, where values are computed the first time they
+    are needed, but remembered from then on.</p>
+
+    <p>The boost.future lazy implementation is loosely modeled on the lazy
+    futures of the Oz operating system.</p>
+
+    <h3>Operators</h3>
+
+    <p><code>boost.future</code> supports logical operators on futures.  These
+    are particularly useful for use as guards.</p>
+
+    <p>Currently, the end output of all operations is a future&lt;void&gt;.  Ie, if I
+    have <code>future&lt;int&gt;</code> &amp;&amp; a <code>future<double></code>, the
+    output is not of some future&lt;tuple&lt;int,double&gt; &gt; type - it is only a
+    future&lt;void&gt;.  Variant types may be added in a coming version, but there
+    are syntactic issues to tackle.</p>
+
+    <p>All future operands must be wrapped in an <code>op()</code> function.
+    For example, <code>future&lt;void&gt; f3 = op(f1) && op(f2)</code>, where f1, and
+    f2 are futures.  This is necessary to avoid syntactic ambiguity due to the
+    support for implicit future conversions.  For example, f1 && f2, where f1
+    is type future<bool>, could trigger an automatic future::get() implicit
+    type conversion in some contexts.  We use op() to indicate that we wish to
+    operate on the future itself, and not the future's (possibly unset)
+    value.</p>
+
+    <h3>Future Streams</h3> 
+
+    <p>A Future Stream is a concurrent one-to-many communication channel with
+    very low lock contention and automatic memory management.  In academic
+    Future-based computer languages, Streams are generally the mainstay of
+    message passing infrastructure and consumer/producer patterns.<p>
+
+    <p>A Future Stream is a very simple structure.  It is a linked list of
+    message structures, in which the "next" field of each message is a future
+    pointer to the next message structure in the list.  To send to a Stream,
+    the Sender creates a new message, and fulfills the promise for the last
+    "next" field used with a pointer to the new message.</p>
+
+    <p>Stream Recipients hold a reference to the last message which they have
+    read.  A Recipient can iterate along the message stream by dereferencing
+    the "next" future pointer on the current message.  If the future pointer
+    has not yet been fulfilled (ie, the recipient is on the lastest message),
+    than the recipient will block until the next message is published by the
+    Sender.  Multiple Recipients may listen to the same stream.</p>
+
+    <p>By using boost::shared_ptr's and future&lt;boost::shared_ptr&gt;'s throughout,
+    we also get automatic memory management.  When the last Recipient moves to
+    the next message, it replaces its current message smart pointer with the
+    next message pointer.  If no other Recipient holds a smart pointer to the
+    message, or to a pointer to any prior message (via the next chain), then
+    the message is automatically deallocated.</p>
+
+    <p>Note that a stream does not store any messages if no one is listening
+    (ie, has a reference to a message).  Listeners have no way to get messages
+    that were sent before they had a handle on the stream.  If multiple
+    Recipients are holding references to messages on the stream, than messages
+    are stored until the last Recipient has read past them, just by the simple
+    smart pointer mechanism described above.</p>
+
+    <p>We can implement a Future Stream "by hand" using boost.future as
+    follows:</p>
+
+    <pre><code>
+// Hand Rolled Streams
+template&lt;class T&gt;
+struct item {
+  typedef shared_ptr&lt;item&lt;T&gt; &gt; item_p;
+  item(const T & val, const future&lt;item_p&gt; nxt) : value(val), next(nxt) {}
+  T value;
+  future&lt;item_p&gt; next;
+};
+
+void producer1(promise&lt;shared_ptr&lt;item&lt;int&gt; &gt; &gt; head) {
+  for (int i=0; i&lt;24; ++i) {
+    promise&lt;shared_ptr&lt;item&lt;int&gt; &gt; &gt; p;
+    head.set(shared_ptr&lt;item&lt;int&gt; &gt;(new item&lt;int&gt;(i, p)));
+    head = p;
+  }
+}
+
+void f12() {
+  promise&lt;shared_ptr&lt;item&lt;int&gt; &gt; &gt; head;
+  future&lt;shared_ptr&lt;item&lt;int&gt; &gt; &gt; next(head);
+  producer1(head);
+  head.reset(); // break the promise of any more
+  // Consume the results and add them together
+  int accum=0;
+  try { // stream is closed when next promise is broken.
+    while (true) {
+      accum += next.get()->value; // will block
+      next = next.get()->next; // move on to next item
+    }
+  } catch (boost::broken_promise &amp;) {}  
+    std::cout &lt;&lt; "DEBUG: Sum of Stream Contents = " &lt;&lt; accum &lt;&lt; "\n";
+}
+</pre></code>
+
+    <p>There are a few complications when implementing Future Streams in C++.
+    In particular, if you want automatic deallocation of old messages you must
+    be careful not to pass message reference by value.  As long as the original
+    copy is kept on the stack, no messages after the reference will be deleted.
+    Also note that the stream is ended when a "next" future receives a "broken
+    promise exception" - this automatically occurs when the message producer1
+    above exits.  The last promise at the head of the stream then moves out of
+    scope and the "broken promise" condition is detected and set.</p>
+
+    <p>boost.future provides future_stream and promise_stream classes to enable
+    simple usage of Streams.<p>  
+    
+    <p>future_stream has a standard-style iterator interface.  One must keep in
+    mind, however, that Streams do not behave like a standard container type.
+    A message is deallocated only after the last iterator reference to it or
+    its predecessors, so the above warnings about passing iterators by value
+    should be headed.  Also, future_stream&lt;T&gt;.begin() does not return the first
+    message sent, but instead returns an iterator to the next/future message
+    that will be sent.  Finally, the future_stream::iterator equality operator
+    will block until the next message is fulfilled.</p>
+
+<pre><code>
+// produces 23 int values
+void producer(boost::promise_stream&lt;int&gt; pstream) {
+  for (int i=0; i&lt;24; ++i)
+    pstream.send(i);
+  pstream.close();
+}
+
+void f13() {
+  boost::promise_stream&lt;int&gt; pstream;
+  boost::future_stream&lt;int&gt; fstream(pstream); // construct future_stream from promise_stream
+  // get pointer to head of stream BEFORE producer starts
+  boost::future_stream&lt;int&gt;::iterator iter = fstream.begin();
+  // Launch producer in another thread
+  boost::thread t1(boost::bind(producer, pstream));
+  // Consume the results and add them together
+  int accum=0;
+  for (; (iter != fstream.end()); ++iter)
+    accum += *iter;
+  std::cout &lt;&lt; "FINAL Sum of Stream Contents = " &lt;&lt; accum &lt;&lt; "\n";
+  t1.join();
+}
+</code></pre>
+
+    <a name="api"/>
+    <h2>Future and Promise API</h2>
+
+    <h3>future&lt;R&gt;</h3>
+
+<pre><code>
+  template&lt;typename R&gt; class future
+  {
+    public:
+<h4>future&lt;R&gt; Constructors and Assignment</h4>
+      // Default constructor will create a future, and will immediately set a
+      // broken_promise exception.
+      // A default-constructed future is only good for equality assignment to a
+      // valid future.
+      future();
+
+      // Copy constructor
+      // the new future will refer to the same underlying future instance 
+      future(const future& t);
+
+      // Templated copy constructor
+      // Creates future of convertible type.
+      // ex. future&lt;long&gt; f2(future&lt;int&gt;(f1));
+      template&lt;typename T&gt;
+      future(const future&lt;T&gt;& t);
+
+      // Create a future from a promise - both refer to same underlying object
+      future(const promise&lt;R&gt;& p);
+
+      // Create a future&lt;R&gt; from a promise&lt;T&gt; of compatible type T
+      template&lt;typename T&gt;
+        future(const promise&lt;T&gt;& p);
+
+      future& operator=(const future& t);
+
+      template&lt;typename T&gt;
+	future&lt;R&gt;& operator=(const future&lt;T&gt;& t);
+
+<h4>future&lt;R&gt; Status and Waiting Methods</h4>
+      // queries whether the future has been fulfilled 
+      // with a value or an exception
+      bool ready() const;
+
+      // has_value() is true if future has been fulfilled (is ready())
+      // with a value (as opposed to an exception
+      // Dimov proposal N2185
+      bool has_value() const;
+
+      // has_exception() is true if future has been fulfilled (is ready())
+      // with an exception (as opposed to an value)
+      bool has_exception() const; // N2185
+      
+      // wait for ready()
+      void wait();
+
+      // Wait until absolute time abstime for future&lt;R&gt; to become ready.
+      bool timed_wait( boost::xtime const & abstime );
+
+<h4>future&lt;R&gt; Callbacks</h4>
+
+      // Add a function to be called when the future is fulfilled (becomes ready())
+      // Multiple callback functions can be set.
+      // NOTE: if the future is ALREADY fulfilled, then add_callback will
+      // call f() IMMEDIATELY.
+      // add_callback returns a opaque handle to the callback which can
+      // be used to later remove the callback (see remove_callback(...))
+      callback_reference add_callback(const boost::function&lt;void (void)&gt; &amp;f);
+
+      // remove_callback will remove a registered callback
+      // Calling with an invalid callback_reference, or a
+      // callback_reference which has already been removed is
+      // invalid (and bad).
+      // This function is guaranteed not to return until the
+      // callback is removed.
+      // This can block if callbacks are already in progress
+      void remove_callback(callback_reference &ref);
+
+<h4>future&lt;R&gt;: Accessors and Lazy Request</h4>
+      // implicit conversion operator will block until ready.
+      // will return value, if set, or throw exception, if set.
+      // flags a lazy future as needed before blocking.
+      operator R() const; // N2185
+
+      // Preferred method: Block until future has been fulfilled (ready()).
+      // Will return fulfilled value or throw fulfilled exception.
+      // flags a lazy future as needed before blocking.
+      R get() const;
+
+      // Functor accessor method. 
+      // Block until future has been fulfilled (ready()).
+      // Will return fulfilled value or throw fulfilled exception.
+      // flags a lazy future as needed before blocking.
+      R operator()() const;
+
+      // For Lazy Futures - flag future as being needed,
+      // but do not block.
+      void set_needed() const;
+
+}; // end of class future
+</code></pre>
+
+    <h3>future&lt;void&gt; Specialization</h3>
+<pre><code>
+  // void specialization, based on Peter Dimov's example
+  template&lt;&gt; class future&lt;void&gt; : private future&lt;int&gt; {
+    public:
+      future();
+      future(const future& t);
+      future(const promise&lt;void&gt; &p);
+      future& operator=(const future& t);
+      template&lt;typename T&gt;
+	future& operator=(const future&lt;T&gt;& t);
+
+      using base_type::has_value;
+      using base_type::has_exception;
+      using base_type::timed_wait;
+      using base_type::ready;
+      using base_type::wait;
+      using base_type::set_needed;
+      using base_type::add_callback;
+      using base_type::remove_callback;
+
+      void get() const;
+    };
+</code></pre>
+
+    <h3>future&lt;R&&gt; Reference Specialization</h3>
+
+    <pre><code>
+  // reference passing specialization, based on Peter Dimov's example
+  template&lt;typename R > class future&lt; R& &gt;: private future&lt; R*&gt; 
+  {
+    private:
+      typedef future&lt; R* &gt; base_type;
+    public:
+      future();
+      future(const future& t);
+      future(const promise&lt;R*&gt; &amp;p);
+      future& operator=(const future&amp; t);
+      using base_type::has_value;
+      using base_type::has_exception;
+      using base_type::timed_wait;
+      using base_type::ready;
+      using base_type::wait;
+      using base_type::add_callback;
+      using base_type::set_needed;
+
+      operator R&() const;
+
+      R& get() const;
+  };
+</code></pre>
+
+    <h3>promise&lt;R&gt; </h3>
+    <em>Implementation details and helper superclass removed</em><br/>
+
+<pre><code>
+  template&lt;typename R&gt; class promise : public untyped_promise
+  {
+    public:
+      promise();
+      promise(const promise& t);
+      promise& operator=(const promise& t);
+
+      // sets the value r and transitions to ready()
+      // If called more than once, later calls are silently ignored
+      void set( R const & r );
+
+      // Attempts to set the value.  If the value has already been
+      // set, then this version throws a boost::future_already_set
+      // exception
+      void set_or_throw( R const & r);
+
+      bool is_needed();
+      void wait_until_needed();
+      shared_ptr&lt;detail::future_impl&gt; get_needed_future();
+
+      // Resets promise to a new empty promise
+      void reset();
+
+      // stores the exception e and transitions to ready()
+      template&lt;typename E&gt; void set_exception( E const & e );
+
+      // fulfill the future with the current exception
+      // (ie, the result of `throw`)
+      // Meant to be called from within a catch(...)
+      void set_current_exception();
+
+      void set_exception( const detail::exception_ptr & e);
+    };
+  </code></pre>
+
+    <h3>promise&lt;void&gt; Void Type Specialization</h3>
+
+    <pre><code>
+  template&lt;&gt; class promise&lt;void&gt; : public promise&lt;int&gt; {
+    public:
+      promise();
+      promise(const promise& t);
+      promise& operator=(const promise& t);
+      using base_type::set_exception;
+      using base_type::is_needed;
+      using base_type::wait_until_needed;
+      void set();
+      void set_or_throw();
+  };
+</code></pre>
+
+<h3>promise&lt;R&amp;&gt; Reference Type Specialization</h3>
+
+<pre><code>
+  template &lt;typename R > class promise&lt; R& &gt; {
+    public:
+      promise() : promise&lt;R*&gt;();
+      promise(const promise& t);
+      promise& operator=(const promise& t);
+      using base_type::set_exception;
+      using base_type::is_needed;
+      using base_type::wait_until_needed;
+      void set(R &r);
+      void set_or_throw(R &r);
+  };
+</code></pre>
+
+<h3>future_stream&lt;T&gt;</h3>
+
+<pre><code>
+  template &lt;typename T&gt;
+    class future_stream {
+
+        // Construction and Assignment
+	future_stream(const future_stream &ps);
+	future_stream &operator=(const future_stream& t);
+
+	// begin() retrieves an iterator which refers to the next item sent.
+	iterator begin();
+
+	// end() returns a special iterator value which can be compared to an
+	// iterator refering to the special item indicating a closed stream.
+	iterator end();
+
+	// reset() dissociates this handle from it's underlying future_stream.
+        // future_stream has reference semantics
+	void reset();
+</pre></code>
+<h4>future_stream&lt;T&gt;::iterator</h4>
+<pre><code>
+        // class iterator is a sub-class of future_stream
+	// It implements a basic stl-style iterator interface to 
+	// a Future Stream.  It derives iterator functionality from
+	// boost::iterator_facade, such as pre-and-post-increment ++ operators.
+	class iterator : public boost::iterator_facade&lt;
+			 iterator, T, boost::forward_traversal_tag&gt; {
+	public:
+	  iterator();
+	  iterator(const iterator &t);
+
+          // recv() returns the next item value from the stream.
+	  // This will block until the next item pointer future has not yet been
+	  // fulfilled by a corresponding promise_stream (if not already set).  
+          // It will then increment the iterator position to the next item, and return
+          // the value to the last item.
+	  // If the next item pointer future is fulfilled with a null pointer,
+	  // than an end_of_stream() exception will be thrown.
+          // If the next item pointer future is fulfilled with an exception,
+	  // (such as a broken_promise) than the exception is thrown.
+	  T recv();
+
+          // Is the next item ready? (ie, recv() will not block?)
+	  bool ready() const;
+      
+	  // Return true if the next item pointer has been fulfilled as null
+	  // (which indicates the end of stream), OR contains an exception
+	  // (such as a broken_promise - there is no way for a stream to continue
+	  // after an exception because the linked list has been broken).
+          // Returns FALSE if the next item pointer has not yet been set.
+	  // WARNING: Note that if the next item pointer has not yet been fulfilled,
+	  // this will return false (not closed) although the promise_stream COULD
+          // still close it.  Therefore use caution when using this as a loop condition.
+	  bool closed() const;
+
+	  // For "Lazy Streams" using Lazy Futures (very nice for consumer/producer patterns), 
+	  // this will flag the future next item pointer as "needed" (by
+	  // calling future&lt;T&gt;::set_needed() on it).
+	  void set_needed();
+
+	  // Will reset this handle to null - ie, it will no longer point to
+	  // any underlying future instance.
+	  void reset();
+	};
+    }; // end of class future_stream&lt;T&gt;
+</code></pre>
+
+<h3>promise_stream&lt;T&gt;</h3>
+
+<pre><code>
+  template&lt;typename T&gt;
+    class promise_stream : public future_stream&lt;T&gt; {
+      public:
+	promise_stream();
+	promise_stream(const promise_stream&lt;T&gt; &ps);
+	promise_stream &operator=(const promise_stream& t);
+
+	// send() will allocate an item with the specified value, fulfill the
+	// head pointer future to point to the next item, and replace the head
+	// smart pointer with a reference to the new item's "next" reference.
+	void send(const T &value);
+
+	// close() will set the stream head future pointer to a null pointer.
+	// A null pointer "next" field is interpreted as the end-of-stream
+        // (any iterator with a null item pointer == future_stream::end()).
+	void close();
+
+	// For lazy stream usage - wait_until_needed() will block until the next value
+        // is needed by one of the stream's listeners.  A basic consumer/producer pattern.
+	void wait_until_needed();
+
+	// For lazy stream usage - is_needed() will return true if the head
+	// pointer future is needed (ie, future_stream::iterator::set_needed()
+	// is called or a future_stream::iterator is blocked in recv() or an
+	// iterator operator.
+	bool is_needed();
+
+        // Returns the "needed future" for the head future item pointer.
+        // This void future will be fulfilled when the stream is needed().
+	future&lt;void&gt; get_needed_future();
+
+	// Will reset this handle to null - ie, it will no longer point to
+	// any underlying future or promise instance.
+	void reset();
+    };
+</code></pre>
+
+<h3>Operators</h3>
+
+<pre><code>
+
+  // The comb&lt;T&gt; class is only a helper which the user can ignore.
+  // It wraps a future class to prevent implicit value retrieval.
+  // comb&lt;T&gt; is implicitly convertible to future&lt;T&gt;
+  template&lt;typename T&gt;
+    class comb {...};
+
+  // op() is a function which returns a comb&lt;T&gt; wrapper
+  // object for a future/promise.  We must use op() to disambiguate
+  // because of the one future implicit conversion method.
+  template&lt;typename T&gt;
+    comb&lt;T&gt; op(const future&lt;T&gt; &x);
+  template&lt;typename T&gt;
+    comb&lt;T&gt; op(const promise&lt;T&gt; &x);
+
+  // operator&&() creates a new combined future&lt;void&gt;.
+  // The combined future will be fulfilled when both a and b
+  // are fulfilled (with either values or exceptions).
+  template&lt;typename T, typename U&gt;
+  comb&lt;void&gt; operator&&(const comb&lt;T&gt; &a, const comb&lt;U&gt; &b);
+
+  // operator||() creates a new combined future&lt;void&gt;.
+  // The combined future will be fulfilled when either a or b
+  // are fulfilled.
+  template&lt;typename T, typename U&gt;
+  comb&lt;void&gt; operator||(const comb&lt;T&gt; &a, const comb&lt;U&gt; &b);
+
+</code></pre>
+
+    <p>------------------------------------</p>
+
+
+    <a name="Features"/>
+    <h2>Features</h2>
+
+    <ul>
+      <li><p>split promise&lt;T&gt/future&lt;T&gt; concept.</p></li>
+
+      <li><p>Agnostic to scheduling, use of active object
+	  implementation, thread model, etc etc.</p></li>
+
+      <li><p>promise&lt;T&gt; is reference counted - if the last
+	  promise&lt;T&gt; goes out of scope before the future is set, the
+	  future is automatically failed with a broken_promise
+	  exception.</p></li>
+
+      <li><p>add_callback() permits arbitrary functions to be
+	  called when the future is set.  This is needed to build non-intrusive
+	  compound waiting structures, like future_groups, or to better support
+	  continuation scheduling concepts, as in
+	  coroutines.</p></li>
+
+      <li><p>Lazy evaluation of futures is supported through the
+	  "is_needed()", "set_needed()", and "wait_until_needed()" methods.
+	  Construction of "as-needed" producer/consumer patterns and many other
+	  possibilities are possible.</p></li>
+
+      <li><p>Header-only library - no linking
+	  required</p></li>
+
+      <li><p>Value type does not require a default constructor, and
+	  no wasteful excess default construction is performed.  Value type
+	  only needs to be copy constructable.</p></li>
+
+      <li><p>atomic set_or_throw() permits the caller to detect if
+	  a set was successful (ie, if the caller was the first to transition
+	  the future to ready).  This enables promise/future to be used to as a
+	  type of atomic semaphore.</p></li>
+
+      <li><p>future&lt;T&gt; can be constructed from a future&lt;Y&gt as
+	  long as type T is constructable or assignable from Y.  Both
+	  references will refer to the same future instance, only the value
+	  will be automatically converted in
+	  future&lt;T&gt;::get().</p></li>
+
+      <li><p>future&lt;void&gt; and promise&lt;void&gt;
+	  specializations, as per Dimov proposal</p></li>
+
+      <li><p>future&lt;void&gt; can be constructed or assigned
+	  from any general future&lt;T&gt;.  This permits you to monitor if
+    any future is ready(), etc in a type-agnostic way.</p></li>
+
+      <li><p>Pass-by-reference specializations, such as
+	  future&lt;int&amp;&gt;, permit return by reference, as per Dimov
+	  proposal.</p></li>
+
+      <li><p>Uses Peter Dimov's exception_ptr implementation to
+	  make a best-effort to pass exception types between
+	  threads.</p></li>
+
+      <li><p>implementation of all three of f, f(), an f.get()
+	  blocking accessor syntaxes, for better or for
+	  worse.</p></li>
+
+      <li><p>future_wrapper&lt;T&gt; provides a basic future
+	  wrapper for any function which returns a value of type
+	  T.</p></li>
+
+      <li><p>future_wrapper&lt;void&gt; specialization is
+	  provided, so that a void function can be wrapped and monitored
+	  via a future&lt;void&gt;</p></li>
+
+      <li><p>future streams are provided for in convenient
+	  future_stream/promise_stream classes, providing easy creation of
+	  producer/consumer patterns and many-to-many
+	  communications.</p></li> 
+
+      <li><p>Basic logical future combinations are provided.
+	  Logical or and logical and are provided by using a wrapper
+	  function called 'op()' combined with overloaded operator|| and
+	  operator&&.  This is done is such a way that the overloaded ||/&&
+	  operators will not be confused with implicit conversion of the
+	  underlying future value.  Example: future&lt;void&gt; f =
+	  op(fut_a) && (op(fut_b) || op(fut_c))</p></li>
+
+    </ul>
+
+    <h2>Design Rationale</h2>
+
+    <h3>Relationship to Other Future Proposals and Implementations</h3>
+
+    <h4>C++0x Proposals (N2185, N2179, N2096) by Peter Dimov</h4>
+
+    <p>The core future and promise methods and specializations were originally
+    based on Peter Dimov's earlier C++0x proposals (see references), with some
+    changes described here.</p>
+
+    <ul>
+      <li><p>Some method names were reverted to Peter Dimov's earlier
+	  N2096 proposal because of better semantics, in the author's
+	  opinion.</p></li>
+
+	<ul>
+	  <li><p><code>set_value()</code> -> <code>set()</code> - primary use of future</p></li>
+	  <li><p><code>join() -> wait()</code> - more descriptive, less thread-centric</p></li>
+	  <li><p><code>timed_join() -> timed_wait()</code></p></li>
+	  <li><p><code>try_join() -> ready()</code> - join implies blocking, but this returns state</p></li>
+	</ul>
+      </li>
+      <li><p>Should set() silently ignore calls on an already set promise, or
+      should it throw?  </p>
+
+	<p>Peter Dimov's proposal says ignore, and I'm inclined to agree because
+	  if a user sets up a scenario where a promise is shared between
+	  multiple functions, or where a future is canceled, it is impossible
+	  for the author of the individual function to foresee the exceptional
+	  situation.  I offer set_or_throw() to still allow use of future for
+	  atomic signaling.</p>
+      </li>
+    </ul>
+
+    <h2>References and Acknowledgements</h2>
+    <ul>
+      <li><p>C++09 N2561: An Asynchronous Future Value - by Vollmann, Hinnant, and Williams,
+      http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2008/n2561.html
+      <p></li>
+    
+      <li><p>N2179, 2007-03-03, Peter Dimov, Language Support for Transporting Exceptions between Threads
+      http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2179.html</p></li>
+
+      <li><p>N2185, 2007-03-06, Peter Dimov, Proposed Text for Parallel Task Execution
+      http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2185.html</p></li>
+
+      <li><p>N2107, Exception Propagation across Threads, by Jens Maurer and Alisdair Meredith.</p></li>
+
+      <li><p>N2096, 2006-09-07, Peter Dimov, Transporting Values and Exceptions between Threads,
+      http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2006/n2096.html</p></li>
+
+      <li><p>Multithreading API for C++0X - A Layered Approach, Howard Hinnant
+http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2006/n2027.html
+      </p></li>
+
+      <li><p>Concur and C++ Futures, Herb Sutter, presentation video & slides
+http://video.google.com/videoplay?docid=7625918717318948700
+http://www.nwcpp.org/Downloads/2006/The_Concur_Project_-_NWCPP.pdf
+      </p></li>
+
+      <li><p>Language Support for Transporting Exceptions Between Threads N2179, Peter Dimov
+http://www.pdimov.com/cpp/N2179.html
+      </p></li>
+
+      <li><p>Active Object libpoet framework by Frank Mori Hess
+http://www.comedi.org/projects/libpoet/index.html
+      </p></li>
+
+      <li><p>Jason
+http://source.emptycrate.com/projects/activeobjects/
+      </p></li>
+
+      <li><p>Boost Coroutine library
+      </p></li>
+
+      <li><p>Boost Vault future library
+      </p></li>
+
+      <li><p>Chris Kohlhoff's future implementation, posted to boost-devel list
+      </p></li>
+    </ul>
+
+    <h2>Frequency Asked Questions</h2>
+    <pre>
+      From: Jose 
+      To: braddock@braddock.com
+      Subject: Re: [boost] [futures] future streams, lazy futures, implementation work
+      Date: Wed, 13 Jun 2007 21:16:11 +0200
+
+      Hi,
+
+      I just watched Herb Sutter's presentation on concurrent programming and
+      was wondering if you have the example below in real code using asio and
+      your futures library. I think this would be a great example to have !
+
+      Thanks and regards
+      jose
+
+      <pre><code>
+	// Pseudocode
+	int Process( Service1 s1, Service2 s2, Service3 s3, int ms ) {
+	  int result1 = s1.Work1( 42 );      // should run asynchronouslylt
+          int result2 = s2.Work2( "xyzzy" ); // should run asynchronously
+          int result3 = s3.Work3( "xyzzy" ); // should run asynchronously
+	  if( Work1 and either Work2 or Work3 complete within "ms" ms ) {
+            return result1 + whichever of result2 or result3 is available;
+	  } else {
+	    return -1;
+	  }
+	}
+      </code></pre>
+    </pre>
+
+    <p>Future's by themselves do not handle dispatching functions, and I do not have
+      asio integration (hoping the asio folks might pick up on doing that).  However,
+      I have written my own concurrency library which has an "async" function which
+      dispatches a function call for scheduling, optionally to a specific "service"
+      or thread.  </p>
+
+    <p>Using my concurrency library only for the "async" dispatch call, the following
+      should work:</p>
+
+    <pre><code>
+int Process( Service1 s1, Service2 s2, Service3 s3, int ms ) {
+    future&lt;int&gt; result1 = async(s1, Work1, 42 );      // should run asynchronously
+    future&lt;int&gt; result2 = async(s2, Work2, "xyzzy" ); // should run asynchronously
+    future&lt;int&gt; result3 = async(s3, Work3, "xyzzy" ); // should run asynchronously
+    future&lt;void&gt; group = op(result1) &amp&amp (op(Work2) || op(Work3));
+    group.timed_wait(ms);
+    if (group.ready()) { // are any ready?
+      int x = result2.ready() ? result2 : result1;
+      return result1 + x; 
+    } else {
+      return -1;
+    }
+}
+    </code></pre>
+
+  </body>
+</html>
+

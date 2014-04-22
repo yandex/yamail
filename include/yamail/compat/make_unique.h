@@ -4,11 +4,7 @@
 #include <yamail/compat/config.h>
 #include <yamail/compat/namespace.h>
 
-#if __cplusplus > 201103L
-# define HAVE_STD_MAKE_UNIQUE 1
-#endif
-
-#if defined(HAVE_STD_MAKE_UNIQUE)
+#if defined(HAVE_STD_MAKE_UNIQUE) && HAVE_STD_MAKE_UNIQUE
 # include <memory>
 #else 
 #include <cstddef>
@@ -19,7 +15,7 @@
 
 YAMAIL_FQNS_COMPAT_BEGIN
 
-#if defined(HAVE_STD_MAKE_UNIQUE)
+#if defined(HAVE_STD_MAKE_UNIQUE) && HAVE_STD_MAKE_UNIQUE
 using std::make_unique;
 #else
 template<class T> struct _Unique_if {

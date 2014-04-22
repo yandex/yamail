@@ -7,6 +7,7 @@
 #include <yamail/compat/exception.h>
 #include <yamail/compat/function.h>
 #include <yamail/compat/make_unique.h>
+#include <yamail/compat/mutex.h>
 #include <yamail/compat/shared_ptr.h>
 // #include <yamail/compat/string.h>
 #include <yamail/compat/system.h>

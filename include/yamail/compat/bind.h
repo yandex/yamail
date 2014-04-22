@@ -10,7 +10,7 @@
  *  [std|boost]::bind compatibility wrapper header
  */
 
-#if defined(__HAVE_STD_BIND)
+#if defined(HAVE_STD_BIND) && HAVE_STD_BIND
 # include <functional>
 #else
 # include <boost/bind.hpp>
@@ -18,7 +18,7 @@
 
 YAMAIL_FQNS_COMPAT_BEGIN
 
-#if defined(__HAVE_STD_BIND)
+#if defined(HAVE_STD_BIND) && HAVE_STD_BIND
 using std::bind;
 #else
 using boost::bind;

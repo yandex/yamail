@@ -9,7 +9,7 @@
  *  [std|boost]::function compatibility wrapper header
  */
 
-#if defined(__HAVE_STD_FUNCTION)
+#if defined(HAVE_STD_FUNCTION) && HAVE_STD_FUNCTION
 # include <functional>
 #else
 # include <boost/function.hpp>
@@ -17,7 +17,7 @@
 
 YAMAIL_FQNS_COMPAT_BEGIN
 
-#if defined(__HAVE_STD_FUNCTION)
+#if defined(HAVE_STD_FUNCTION) && HAVE_STD_FUNCTION
 using std::function;
 #else
 using boost::function;

@@ -1,0 +1,67 @@
+CANCEL HANDLERS HAVE BEEN DEPRECATED.  HERE IS THE OLD DOCUMENTATION WHICH DISCUSSES THEM. 
+-Braddock 5/08
+
+    <p>If a <em>cancel handler</em> is installed on a promise, using
+    <code>promise&lt;T&gt;::set_cancel_handler()</code>, then a
+    <code>future&lt;void&gt;</code> can still be used as a handle for canceling a
+    job.  </p>
+
+    <h3>Cancel Handlers</h3>
+
+    <p>A <code>future&lt;T&gt;::cancel()</code> method is provided to allow a future
+    to be "canceled".  To call <code>cancel()</code> on a future results in the
+    future being set to the <code>boost::future_cancel</code> exception, and an
+    optional user-provided <em>cancel handler</em> being called.</p>
+
+    <p>The meaning of cancel() is, in general, to unschedule the task
+    associated with the future from execution.  However, this meaning is really
+    defined by the user who provides a cancel_handler.</p>
+
+    <p>The following code extends JobQueue1 with the ability to cancel jobs in
+    our JobQueue example:</p>
+
+<pre><code>
+class JobQueue2 : public JobQueue1 {
+    template &lt;class T&gt;
+      future&lt;T&gt; schedule(boost::function&lt;T (void)&gt; const& fn) {
+	boost::mutex::scoped_lock lck(mutex_);
+	promise&lt;T&gt; prom; // create promise
+	q_.push_back(future_wrapper&lt;T&gt;(fn, prom)); //queue the job
+	prom.set_cancel_handler(boost::bind(&JobQueue2::cancelJob,this,q_.back()));
+	condition_.notify_all(); // wake worker thread(s)
+	return future&lt;T&gt;(prom); // return a future created from the promise
+      }
+protected:
+  void cancelJob(std::list&lt;boost::function&lt;void ()&gt; &gt;::iterator list_iter) {
+    q_.erase(list_iter);
+  }
+};
+</code></pre>
+
+    <p>A cancel handler can generally have arguments bound to the future itself
+    without fear of a circular reference. As with Callbacks in the prior
+    section, the cancel handler is automatically removed when the future is
+    either set or canceled.</p>
+
+    <p><em>THEORY NOTE:</em> A cancel() function should be considered a minor
+    impurity in C++ future implementation.  A Future is not really a handle to
+    a task, but a promised value.  If more advanced task management (priority,
+    status, etc) is required, then the author recommends a custom task&lt;T&gt; class
+    to provide a more sophisticated API, and which is implicitly convertible to
+    a boost::future&lt;T&gt; if the user only wants a simple interface.  That said,
+    future&lt;T&gt;::cancel() is really really useful for most simple cases, and is
+    generally present in other C++ future implementations.</p>
+
+
+      <li><p>
+	  The user-supplied cancel_handler is called after the future/promise
+	  is unlocked.  Otherwise, the cancel_handler could cause a deadlock if
+	  it invokes any methods upon the promise/future.  This means that
+	  worker threads COULD call set() upon a canceled future, but these
+	  calls would be ignored.  
+	</p>
+	<p>This is (IMHO) correct behavior.  A cancel() invocation sets the
+	  future's state with a future_cancel exception - it does not guarantee
+	  that the work is actually canceled, because in many cases it cannot
+	  be stopped.
+	</p>
