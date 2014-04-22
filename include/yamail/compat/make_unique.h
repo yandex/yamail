@@ -1,6 +1,7 @@
 #ifndef _YAMAIL_COMPAT_MAKE_UNIQUE_H_
 #define _YAMAIL_COMPAT_MAKE_UNIQUE_H_
 #include <yamail/config.h>
+#include <yamail/compat/config.h>
 #include <yamail/compat/namespace.h>
 
 #if __cplusplus > 201103L

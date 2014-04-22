@@ -1,14 +1,14 @@
+#ifndef _YAMAIL_COMPAT_BIND_H_
+#define _YAMAIL_COMPAT_BIND_H_
+#include <yamail/config.h>
+#include <yamail/compat/config.h>
+#include <yamail/compat/namespace.h>
+
 /*
  * bind.h
  *
  *  [std|boost]::bind compatibility wrapper header
  */
-
-#ifndef _YAMAIL_COMPAT_BIND_H_
-#define _YAMAIL_COMPAT_BIND_H_
-
-#include <yamail/config.h>
-#include <yamail/compat/namespace.h>
 
 #if defined(__HAVE_STD_BIND)
 # include <functional>

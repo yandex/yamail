@@ -1,6 +1,7 @@
 #ifndef _YAMAIL_COMPAT_NAMESPACE_H_
 #define _YAMAIL_COMPAT_NAMESPACE_H_
 #include <yamail/config.h>
+#include <yamail/compat/config.h>
 #include <yamail/namespace.h>
 
 #define YAMAIL_NS_COMPAT compat

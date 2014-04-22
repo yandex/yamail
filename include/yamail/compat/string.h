@@ -1,6 +1,7 @@
 #ifndef _YAMAIL_COMPAT_STRING_H_
 #define _YAMAIL_COMPAT_STRING_H_
 #include <yamail/config.h>
+#include <yamail/compat/config.h>
 #include <yamail/compat/namespace.h>
 #include <string>
 
