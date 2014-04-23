@@ -2,7 +2,6 @@
 #define _YAMAIL_LOG_LOG_H_
 #include <yamail/config.h>
 #include <yamail/log/namespace.h>
-#include <yamail/compat/shared_ptr.h>
 
 #include <boost/version.hpp>
 #include <boost/property_tree/ptree.hpp>

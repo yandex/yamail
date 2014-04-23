@@ -14,7 +14,7 @@
 #if YAMAIL_CPP >= 11
 
 # define _noexcept noexcept
-# define _constexpr
+# define _constexpr constexpr
 
 #else // earlier than C++11
 

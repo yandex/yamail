@@ -12,9 +12,12 @@
 #endif
 
 #include <yamail/log/rotate_text_file_backend.h>
-#include <yamail/compat/shared_ptr.h>
 
 #include <boost/thread.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/make_shared.hpp>
+#include <boost/static_assert.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <boost/log/core.hpp>
 #include <boost/log/sinks.hpp>
@@ -47,10 +50,8 @@
 
 YAMAIL_FQNS_LOG_BEGIN
 
-//BOOST_LOG_GLOBAL_LOGGER_DEFAULT(global_logger, logger_t)
 BOOST_LOG_GLOBAL_LOGGER_CTOR_ARGS(global_logger, logger_t, (boost::log::keywords::channel = "general"))
 
-using namespace YAMAIL_NS_COMPAT;
 namespace logging = boost::log;
 namespace fmt = boost::log::formatters;
 namespace filters = boost::log::filters;
@@ -79,7 +80,7 @@ static const char* levels_formatted[] =
 BOOST_STATIC_ASSERT(levels_size == (sizeof (levels_formatted) / sizeof (*levels_formatted)));
 BOOST_STATIC_ASSERT(levels_size == static_cast<size_t>(end_of_sev_level));
 
-shared_ptr< sinks::sink< char > >
+boost::shared_ptr< sinks::sink< char > >
 create_multifile_sink(std::map< std::string, boost::any > const& params)
 {
     // Read parameters for the backend and create it
@@ -90,16 +91,16 @@ create_multifile_sink(std::map< std::string, boost::any > const& params)
     if (attr_par == params.end())
         throw std::runtime_error("AttrName parameter not specified for the MultiFile backend");
 
-    shared_ptr< sinks::text_multifile_backend > backend =
-        make_shared< sinks::text_multifile_backend >();
+    boost::shared_ptr< sinks::text_multifile_backend > backend =
+        boost::make_shared< sinks::text_multifile_backend >();
 
     backend->set_file_name_composer(fmt::stream << fmt::fmt_wrapper< char, std::string >(boost::any_cast<std::string>(dir_par->second))
                                                 << fmt::attr< std::string >(boost::any_cast<std::string>(attr_par->second))
                                                 << ".log");
 
     // Construct and initialize the final sink
-    shared_ptr< sinks::synchronous_sink< sinks::text_multifile_backend > > sink =
-        make_shared< sinks::synchronous_sink< sinks::text_multifile_backend > >(backend);
+    boost::shared_ptr< sinks::synchronous_sink< sinks::text_multifile_backend > > sink =
+        boost::make_shared< sinks::synchronous_sink< sinks::text_multifile_backend > >(backend);
 
     std::map< std::string, boost::any >::const_iterator it = params.find("Filter");
     if (it != params.end())
@@ -108,13 +109,13 @@ create_multifile_sink(std::map< std::string, boost::any > const& params)
     return sink;
 }
 
-shared_ptr< sinks::sink< char > >
+boost::shared_ptr< sinks::sink< char > >
 create_rotate_text_file_sink(std::map< std::string, boost::any > const& params)
 {
   typedef std::basic_istringstream< char > isstream;
   typedef rotate_basic_text_file_backend< char > backend_t;
   typedef std::map< std::string, boost::any > params_t;
-  shared_ptr< backend_t > backend = make_shared< backend_t >();
+  boost::shared_ptr< backend_t > backend = boost::make_shared< backend_t >();
 
   // FileName
   params_t::const_iterator it =
@@ -151,7 +152,7 @@ create_rotate_text_file_sink(std::map< std::string, boost::any > const& params)
     backend->set_formatter(logging::parse_formatter(boost::any_cast<std::string>(it->second)));
   }
 
-  shared_ptr< sinks::basic_sink_frontend< char > > p;
+  boost::shared_ptr< sinks::basic_sink_frontend< char > > p;
 
   #if !defined(BOOST_LOG_NO_THREADS)
   // Asynchronous
@@ -166,9 +167,9 @@ create_rotate_text_file_sink(std::map< std::string, boost::any > const& params)
 
   // Construct the frontend, considering Asynchronous parameter
   if (!async)
-    p = make_shared< sinks::synchronous_sink< backend_t > >(backend);
+    p = boost::make_shared< sinks::synchronous_sink< backend_t > >(backend);
   else
-    p = make_shared< sinks::asynchronous_sink< backend_t > >(backend);
+    p = boost::make_shared< sinks::asynchronous_sink< backend_t > >(backend);
 #else
   // When multithreading is disabled we always use the unlocked sink frontend
   p = log::aux::new_shared< sinks::unlocked_sink< backend_t > >(backend);
@@ -181,12 +182,12 @@ create_rotate_text_file_sink(std::map< std::string, boost::any > const& params)
 
 
 template <typename Settings, typename BackendPtr>
-shared_ptr<sinks::basic_sink_frontend<char> >
+boost::shared_ptr<sinks::basic_sink_frontend<char> >
 make_frontend(Settings const& params, BackendPtr& backend)
 {
     typedef typename BackendPtr::element_type Backend;
 
-    shared_ptr<sinks::basic_sink_frontend<char> > forntend;
+    boost::shared_ptr<sinks::basic_sink_frontend<char> > forntend;
 
 #if !defined(BOOST_LOG_NO_THREADS)
     // Asynchronous
@@ -203,12 +204,12 @@ make_frontend(Settings const& params, BackendPtr& backend)
 
     // Construct the frontend, considering Asynchronous parameter
     if (!async)
-        forntend = make_shared < sinks::synchronous_sink<Backend> > (backend);
+        forntend = boost::make_shared < sinks::synchronous_sink<Backend> > (backend);
     else
-        forntend = make_shared < sinks::asynchronous_sink<Backend> > (backend);
+        forntend = boost::make_shared < sinks::asynchronous_sink<Backend> > (backend);
 #else
     // When multithreading is disabled we always use the unlocked sink frontend
-    forntend = make_shared< sinks::unlocked_sink< Backend > >(backend);
+    forntend = boost::make_shared< sinks::unlocked_sink< Backend > >(backend);
 #endif
 
     return forntend;
@@ -235,13 +236,13 @@ sinks::syslog::facility extract_facility(std::map< std::string, boost::any > con
 }
 
 
-shared_ptr< sinks::sink< char > >
+boost::shared_ptr< sinks::sink< char > >
 create_syslog_native_sink(std::map< std::string, boost::any > const& params)
 {
     sinks::syslog::facility facility = extract_facility(params);
 
-    shared_ptr< sinks::syslog_backend > backend =
-        make_shared< sinks::syslog_backend >(
+    boost::shared_ptr< sinks::syslog_backend > backend =
+        boost::make_shared< sinks::syslog_backend >(
                 keywords::facility = facility,
                 keywords::use_impl = sinks::syslog::native );
 
@@ -255,7 +256,7 @@ create_syslog_native_sink(std::map< std::string, boost::any > const& params)
 
     backend->set_severity_mapper(sinks::syslog::direct_severity_mapping<severity_level>("Severity"));
 
-    shared_ptr<sinks::basic_sink_frontend<char> > sink = make_frontend(params, backend);
+    boost::shared_ptr<sinks::basic_sink_frontend<char> > sink = make_frontend(params, backend);
 
     it = params.find("Filter");
     if (it != params.end())
@@ -384,21 +385,21 @@ void log_init (const boost::property_tree::ptree& cfg)
   logging::register_formatter_factory("Severity", &severity_formatter_factory);
   logging::register_formatter_factory("LineID", &lineid_formatter_factory);
 
-  shared_ptr<severity_filter_factory> sp (new severity_filter_factory);
+  boost::shared_ptr<severity_filter_factory> sp (new severity_filter_factory);
   logging::register_filter_factory<char> ("Severity", sp);
   {
     boost::log::aux::light_function1<
-      shared_ptr< sinks::sink< char > >,
+      boost::shared_ptr< sinks::sink< char > >,
       std::map< std::string, boost::any > const&
     > func1 (boost::bind (&create_multifile_sink, _1));
 
     boost::log::aux::light_function1<
-      shared_ptr< sinks::sink< char > >,
+      boost::shared_ptr< sinks::sink< char > >,
       std::map< std::string, boost::any > const&
     > func2 (boost::bind (&create_rotate_text_file_sink, _1));
 
     boost::log::aux::light_function1<
-      shared_ptr< sinks::sink< char > >,
+      boost::shared_ptr< sinks::sink< char > >,
       std::map< std::string, boost::any > const&
     > func3 (boost::bind (&create_syslog_native_sink, _1));
 
@@ -407,7 +408,7 @@ void log_init (const boost::property_tree::ptree& cfg)
     logging::register_sink_factory("SyslogNative", func3);
   }
   log_load_cfg(cfg);
-  shared_ptr< logging::core > pCore = logging::core::get();
+  boost::shared_ptr< logging::core > pCore = logging::core::get();
   pCore->add_global_attribute("Scope", attrs::named_scope());
   pCore->add_global_attribute("Tag", attrs::named_scope());
   pCore->add_global_attribute("PID", pid());
