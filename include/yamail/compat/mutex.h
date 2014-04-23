@@ -13,6 +13,7 @@
 # include <boost/thread/lock_guard.hpp>
 # include <boost/thread/once.hpp>
 # include <boost/thread/locks.hpp>
+# include <boost/thread/reverse_lock.hpp>
 
 #include <boost/thread/condition_variable.hpp>
 #include <boost/thread/cv_status.hpp>
@@ -36,6 +37,17 @@ using std::try_lock;
 using std::lock;
 using std::call_once;
 
+template <typename Lock>
+class reverse_lock
+{
+	Lock& lock_;
+public:
+                  reverse_lock  (reverse_lock const&)    = delete;
+    reverse_lock& operator=     (reverse_lock const&)    = delete;
+  explicit inline reverse_lock  (Lock& m) : lock_ (m) { lock_.unlock (); }
+           inline ~reverse_lock ()                    {   lock_.lock (); }
+};
+
 // condition_variable
 using std::condition_variable;
 using std::condition_variable_any;
@@ -49,6 +61,7 @@ using boost::timed_mutex;
 using boost::recursive_timed_mutex;
 using boost::lock_guard;
 using boost::unique_lock;
+using boost::reverse_lock;
 using boost::once_flag;
 using boost::adopt_lock_t;
 using boost::defer_lock_t;

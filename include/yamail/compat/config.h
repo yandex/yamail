@@ -57,6 +57,10 @@
 #  define HAVE_STD_UNORDERED 1
 # endif
 
+# if !defined(HAVE_STD_TYPE_TRAITS)
+#  define HAVE_STD_TYPE_TRAITS 1
+# endif
+
 #else
 // C++ 03
 # if !defined(HAVE_STD_BIND)
@@ -89,6 +93,10 @@
 
 # if !defined(HAVE_STD_UNORDERED)
 #  define HAVE_STD_UNORDERED 0
+# endif
+
+# if !defined(HAVE_STD_TYPE_TRAITS)
+#  define HAVE_STD_TYPE_TRAITS 0
 # endif
 
 #endif // C++ 11

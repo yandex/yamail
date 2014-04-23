@@ -12,6 +12,7 @@
 // #include <yamail/compat/string.h>
 #include <yamail/compat/system.h>
 #include <yamail/compat/thread.h>
+#include <yamail/compat/type_traits.h>
 #include <yamail/compat/unordered.h>
 
 #endif // _YAMAIL_COMPAT_H_

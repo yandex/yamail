@@ -8,8 +8,8 @@
 #include <yamail/compat/function.h>
 #include <yamail/compat/shared_ptr.h>
 
-#include <yamail/concurrency/future/future_exceptions.hpp>
-#include <yamail/concurrency/future/future_detail.hpp>
+#include <yamail/concurrency/future/future_exceptions.h>
+#include <yamail/concurrency/future/future_detail.h>
 
 //  Copyright (c) 2007 Braddock Gaskill Distributed under the Boost
 //  Software License, Version 1.0. (See accompanying file

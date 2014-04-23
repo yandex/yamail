@@ -2,7 +2,7 @@
 #define _YAMAIL_CONCURRENCY_FUTURE_FUTURE_FUTURE_GROUP_HPP_
 #include <yamail/config.h>
 #include <yamail/concurrency/namespace.h>
-#include <yamail/concurrency/future/future.hpp>
+#include <yamail/concurrency/future/future.h>
 
 #include <yamail/compat/shared_ptr.h>
 #include <yamail/compat/exception.h>
