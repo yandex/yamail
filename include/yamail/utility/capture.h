@@ -36,8 +36,9 @@ class capture_impl
 public:
   capture_impl (F&& f, T&& ...t)
     : f ( std::forward<F> (f) )
-    , t ( std::forward_as_tuple (t...) )
-  {}
+    , t ( std::forward_as_tuple (std::forward<T> (t)...) )
+  {
+  }
 
   template <typename ...Ts> auto operator() (Ts&& ...args)
       -> decltype (apply (f, t, std::forward<Ts> (args)...))
@@ -56,7 +57,7 @@ public:
 
 /// move lambda capture emulation for c++11 
 template <typename F, typename T0, typename ...Ts>
-detail::capture_impl<F,T0,Ts...> 
+detail::capture_impl<F,T0,Ts...> // at least two arguments required
 capture (F&& f, T0&& t0, Ts&& ...ts)
 {
 	return detail::capture_impl<F,T0,Ts...> (std::forward<F> (f), 
