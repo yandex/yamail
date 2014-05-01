@@ -655,7 +655,7 @@ protected:
     int overflow (int c)
     {
 #if defined(YDEBUG)
-      std::cerr << "overflow (" << c << "), put ptrs: "
+      std::cerr << "OVERFLOW (" << c << "), put ptrs: "
                 << (void*) this->pbase () << ", "
                 << (void*) this->pptr () << ", "
                 << (void*) this->epptr ()
@@ -665,18 +665,21 @@ protected:
 
       reserve(1);
 
-      if (this->epptr () == this->pptr ())
+      if (fragment_put_size () == 0)
         // advance put area to next fragment
         promote_put ();
       
-      assert(this->pptr() && (this->pptr()!=this->epptr()));
-      *this->pptr()=traits_type::to_char_type(c);
-      this->pbump(1);
+      assert(this->pptr() && fragment_put_size () != 0);
+      if (traits_type::eof() != c)
+      {
+        *this->pptr()=traits_type::to_char_type(c);
+      	this->pbump(1);
+     	}
       return c;
     }
 
     void promote_put_if_exist() {
-        if (this->epptr() > this->pptr()
+        if (fragment_put_size () > 0
                 || (&(*put_active_) == &fragments_.back())) {
             return;
         }
