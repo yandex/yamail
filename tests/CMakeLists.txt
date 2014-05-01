@@ -11,11 +11,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unnamed-type-template-args")
 # Set default ExternalProject root directory
 set_directory_properties(PROPERTIES EP_PREFIX ${CMAKE_BINARY_DIR}/ThirdParty)
 
+set(ext_CMAKE_ARGS -DCMAKE_USER_MAKE_RULES_OVERRIDE=${CMAKE_USER_MAKE_RULES_OVERRIDE} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DCMAKE_CC_COMPILER=${CMAKE_CC_COMPILER})
+
 # Add gtest
 ExternalProject_Add(
     googletest
     SVN_REPOSITORY http://googletest.googlecode.com/svn/tags/release-1.7.0
     TIMEOUT 10
+    CMAKE_ARGS ${ext_CMAKE_ARGS}
     # Disable install step
     INSTALL_COMMAND ""
     # Disable update command, since we use predefined stable version
@@ -39,6 +42,7 @@ ExternalProject_Add(
     googlemock
     SVN_REPOSITORY http://googlemock.googlecode.com/svn/tags/release-1.7.0
     TIMEOUT 10
+    CMAKE_ARGS ${ext_CMAKE_ARGS}
     # Disable install step
     INSTALL_COMMAND ""
     # Disable update command, since we use predefined stable version

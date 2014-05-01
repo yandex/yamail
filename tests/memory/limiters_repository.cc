@@ -29,20 +29,20 @@ TEST(limiters_repository, set_get_limiters)
     limiters_repository& repository = limiters_repository::inst();
     repository.init_factory(composite_limiter_factory::STRICT);
 
-    ASSERT_EQ(repository.global_limiter().available(), 0);
-    ASSERT_EQ(repository.session_limiter().available(), 0);
+    ASSERT_EQ(repository.global_limiter().available(), 0UL);
+    ASSERT_EQ(repository.session_limiter().available(), 0UL);
 
     // Global limiter only one
     repository.global_limit(510);
-    ASSERT_EQ(repository.global_limiter().available(), 510);
+    ASSERT_EQ(repository.global_limiter().available(), 510UL);
     repository.global_limiter().acquire(10);
-    ASSERT_EQ(repository.global_limiter().available(), 500); // less to 10
+    ASSERT_EQ(repository.global_limiter().available(), 500UL); // less to 10
 
     // Session limiter each time new
     repository.session_limit(400);
-    ASSERT_EQ(repository.session_limiter().available(), 400);
+    ASSERT_EQ(repository.session_limiter().available(), 400UL);
     repository.session_limiter().acquire(10);
-    ASSERT_EQ(repository.session_limiter().available(), 400); // the same
+    ASSERT_EQ(repository.session_limiter().available(), 400UL); // the same
 }
 
 TEST(limiters_repository, make_limiter)
@@ -54,15 +54,15 @@ TEST(limiters_repository, make_limiter)
 
     composite_limiter limit = repository.make_limiter("composite", "session");
     // By default it consists of global and session limiters
-    ASSERT_EQ(limit.limiters().size(), 2);
+    ASSERT_EQ(limit.limiters().size(), 2UL);
     ASSERT_EQ(limit.name(), "composite");
-    ASSERT_EQ(limit.used(), 0);
+    ASSERT_EQ(limit.used(), 0UL);
     // we expect that the first limiter is session because
     // it's should be smaller then all other
     composite_limiter::container vec;
     vec = limit.limiters();
     EXPECT_EQ(vec[0].name(), std::string("session"));
-    EXPECT_EQ(vec[1].limit(), 500);
+    EXPECT_EQ(vec[1].limit(), 500UL);
 }
 
 limiter limiter_by_name(std::string name, const composite_limiter& limiter)
@@ -91,15 +91,15 @@ TEST(limiters_repository, one_suid_for_two_climiters)
     c_limiter limiter2 = repository.make_limiter("composite2", "session2");
 
     ASSERT_NO_THROW(repository.upgrade_limiter_with<string_uid>("vasya_pupkin", limiter1));
-    ASSERT_EQ(limiter1.limiters().size(), 3);
+    ASSERT_EQ(limiter1.limiters().size(), 3UL);
     ASSERT_NO_THROW(limiter_by_name("suid_vasya_pupkin", limiter1));
     limiter u_lim = limiter_by_name("suid_vasya_pupkin", limiter1);
-    ASSERT_EQ(u_lim.available(), 400);
-    ASSERT_EQ(u_lim.limit(), 400);
+    ASSERT_EQ(u_lim.available(), 400UL);
+    ASSERT_EQ(u_lim.limit(), 400UL);
 
     // acquire 100 byte from limiter1, so in suid limiter is available 300 (400 - 100)
     limiter1.acquire(100);
-    ASSERT_EQ(u_lim.available(), 300);
+    ASSERT_EQ(u_lim.available(), 300UL);
 
     // the same suid used for limiter2
     limiter2.acquire(100);
@@ -107,7 +107,7 @@ TEST(limiters_repository, one_suid_for_two_climiters)
     ASSERT_NO_THROW(repository.upgrade_limiter_with<string_uid>("vasya_pupkin", limiter2));
     ASSERT_NO_THROW(limiter_by_name("suid_vasya_pupkin", limiter2));
 
-    ASSERT_EQ(u_lim.available(), 200);
+    ASSERT_EQ(u_lim.available(), 200UL);
 }
 
 TEST(limiters_repository, independent_suid_limiters)
@@ -126,11 +126,11 @@ TEST(limiters_repository, independent_suid_limiters)
     ASSERT_NO_THROW(repository.upgrade_limiter_with<string_uid>("42", limiter1));
     limiter1.acquire(100);
     limiter u42_lim = limiter_by_name("suid_42", limiter1);
-    ASSERT_EQ(u42_lim.available(), 300);
+    ASSERT_EQ(u42_lim.available(), 300UL);
 
     ASSERT_NO_THROW(repository.upgrade_limiter_with<string_uid>("69", limiter2));
     limiter u69_lim = limiter_by_name("suid_69", limiter2);
-    ASSERT_EQ(u69_lim.available(), 400);
+    ASSERT_EQ(u69_lim.available(), 400UL);
 }
 
 TEST(limiters_repository, release_suid_limiter)
@@ -148,15 +148,15 @@ TEST(limiters_repository, release_suid_limiter)
         lim.acquire(100);
         repository.upgrade_limiter_with<string_uid>("69", lim);
         limiter u_lim = limiter_by_name("suid_69", lim);
-        ASSERT_EQ(u_lim.available(), 300);
+        ASSERT_EQ(u_lim.available(), 300UL);
     }
     // Now limiter associated with suid = 69 was released
-    ASSERT_EQ(repository.suid_storage_size(), 0);
+    ASSERT_EQ(repository.suid_storage_size(), 0UL);
 
     c_limiter lim = repository.make_limiter("composite1", "session1");
     repository.upgrade_limiter_with<string_uid>("69", lim);
     limiter u_lim = limiter_by_name("suid_69", lim);
-    ASSERT_EQ(u_lim.available(), 400);
+    ASSERT_EQ(u_lim.available(), 400UL);
 }
 
 TEST(limiters_repository, release_all_suid_limiters)
@@ -176,10 +176,10 @@ TEST(limiters_repository, release_all_suid_limiters)
             repository.upgrade_limiter_with<string_uid>(to_string(i), l);
             limiters.push_back(l);
         }
-        ASSERT_EQ(repository.suid_storage_size(), 100);
+        ASSERT_EQ(repository.suid_storage_size(), 100UL);
         limiters.clear();
     }
-    ASSERT_EQ(repository.suid_storage_size(), 0);
+    ASSERT_EQ(repository.suid_storage_size(), 0UL);
 }
 
 #if 0
