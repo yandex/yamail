@@ -84,12 +84,14 @@ private:
     fragment_allocator_type fallocator_;
     allocator_type allocator_;
 
+    typename allocator_type::template rebind<fragment_type>::other
+        fragment_type_allocator_;
+
     fragment_list fragments_;
 
     // active 'put' fragment - this is where pbase, pptr, epptr refers to
     fragment_list_const_iterator put_active_; 
-    typedef typename allocator_type::template rebind<fragment_type>::other AF;
-    AF af;
+
     // utility functions
 
     // returns the occupied space by of fragment pointed by iterator 'iter'
@@ -142,7 +144,8 @@ private:
 
     void add_fragment( std::size_t size ) {
         fragments_.push_back(
-                boost::allocate_shared<fragment_type>(af, size, fallocator_));
+                boost::allocate_shared<fragment_type>(
+                  fragment_type_allocator_, size, fallocator_));
         tail_size_ += size;
     }
 
@@ -257,18 +260,9 @@ public:
         return v ? v : default_min_fragmentation;
     }
 
-    basic_streambuf(std::size_t min_fragmentation = default_min_fragmentation,
-            std::size_t max_fragmentation = default_max_fragmentation,
-            std::size_t start_fragments = 0,    // defaults to 1
-            std::size_t start_fragment_len = 0, // defaults to fragmentation
-            std::size_t max_size = default_max_size,
-            fragment_allocator_type const& fallocator = fragment_allocator_type(),
-            allocator_type const& allocator = allocator_type())
-    : size_(0), inter_size_(0), tail_size_(0), total_size_(0),
-            min_fragmentation_( constarin_min_fragmentation(min_fragmentation) ),
-            max_fragmentation_( constarin_max_fragmentation(max_fragmentation) ),
-            fallocator_(fallocator), allocator_(allocator), fragments_(allocator_),
-            af(allocator_) {
+    void init (std::size_t start_fragments
+        , std::size_t start_fragment_len, std::size_t max_size)
+    {
         if (!start_fragment_len) {
             start_fragment_len = min_fragmentation_;
         }
@@ -295,10 +289,40 @@ public:
         put_active_ = fragments_.begin();
 
         // set streambuf pointers
-        const typename fragment_type::iterator get_begin = (*get_active())->begin();
+        const typename fragment_type::iterator get_begin = 
+            (*get_active())->begin();
         std::streambuf::setg(get_begin, get_begin, get_begin);
 
         update_put();
+    }
+
+    basic_streambuf(std::size_t min_fragmentation = default_min_fragmentation,
+            std::size_t max_fragmentation = default_max_fragmentation,
+            std::size_t start_fragments = 0,    // defaults to 1
+            std::size_t start_fragment_len = 0, // defaults to fragmentation
+            std::size_t max_size = default_max_size,
+            fragment_allocator_type const& fallocator = fragment_allocator_type(),
+            allocator_type const& allocator = allocator_type())
+    : size_(0), inter_size_(0), tail_size_(0), total_size_(0),
+            min_fragmentation_( constarin_min_fragmentation(min_fragmentation) ),
+            max_fragmentation_( constarin_max_fragmentation(max_fragmentation) ),
+            fallocator_(fallocator), allocator_(allocator), 
+            fragment_type_allocator_ (allocator_), fragments_(allocator_)
+    {
+    	init (start_fragments, start_fragment_len, max_size);
+    }
+
+    // Compatible with default constructor of std::basic_streambuf
+    basic_streambuf (std::size_t max_size,
+        fragment_allocator_type const& fallocator = fragment_allocator_type(),
+        allocator_type const& allocator = allocator_type())
+    : size_(0), inter_size_(0), tail_size_(0), total_size_(0),
+            min_fragmentation_( constarin_min_fragmentation(min_fragmentation) ),
+            max_fragmentation_( constarin_max_fragmentation(max_fragmentation) ),
+            fallocator_(fallocator), allocator_(allocator), 
+            fragment_type_allocator_ (allocator_), fragments_(allocator_)
+    {
+    	init (0, 0, max_size);
     }
 
     iterator begin() const {
