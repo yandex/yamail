@@ -628,6 +628,29 @@ protected:
         return fragments_;
     }
 
+    int overflow (int c)
+    {
+#if defined(YDEBUG)
+      std::cerr << "overflow (" << c << "), put ptrs: "
+                << (void*) this->pbase () << ", "
+                << (void*) this->pptr () << ", "
+                << (void*) this->epptr ()
+                << "\n";
+      PRINT_DEBUG (std::cerr);
+#endif
+
+      reserve(1);
+
+      if (this->epptr () == this->pptr ())
+        // advance put area to next fragment
+        promote_put ();
+      
+      assert(this->pptr() && (this->pptr()!=this->epptr()));
+      *this->pptr()=traits_type::to_char_type(c);
+      this->pbump(1);
+      return c;
+    }
+
     void promote_put_if_exist() {
         if (this->epptr() > this->pptr()
                 || (&(*put_active_) == &fragments_.back())) {
