@@ -10,9 +10,6 @@
 
 #include <yamail/compat/shared_ptr.h>
 
-// for debug only
-#include <iostream>
-
 #include <list>
 #include <vector>
 #include <algorithm> // std::min
@@ -29,6 +26,8 @@
 // #define YDEBUG 1
 //
 #if defined(YDEBUG)
+#include <iostream>
+
 #define PRINT_DEBUG(os) print_debug(os, __LINE__)
 #endif
 
@@ -87,8 +86,8 @@ private:
 
     fragment_list fragments_;
 
-    fragment_list_const_iterator put_active_; // active 'put' fragment - this is where
-                                              // pbase, pptr, epptr refers to
+    // active 'put' fragment - this is where pbase, pptr, epptr refers to
+    fragment_list_const_iterator put_active_; 
     typedef typename allocator_type::template rebind<fragment_type>::other AF;
     AF af;
     // utility functions
