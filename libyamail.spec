@@ -56,10 +56,15 @@ cmake . -DCMAKE_INSTALL_PREFIX=/usr \
 %dir %{_includedir}/yamail
 %{_includedir}/yamail/*.h
 %{_includedir}/yamail/compat/*.h
+%{_includedir}/yamail/concurrency/*.h
+%{_includedir}/yamail/concurrency/future/*.h
+%{_includedir}/yamail/concurrency/future/*.html
+%{_includedir}/yamail/concurrency/future/*.txt
 %{_includedir}/yamail/data/*.h
 %{_includedir}/yamail/data/config/*.h
 %{_includedir}/yamail/data/config/detail/*.h
 %{_includedir}/yamail/data/zerocopy/*.h
+%{_includedir}/yamail/error/*.h
 %{_includedir}/yamail/iterator/*.h
 %{_includedir}/yamail/log/*.h
 %{_includedir}/yamail/memory/*.h
