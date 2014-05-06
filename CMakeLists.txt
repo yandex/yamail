@@ -49,7 +49,6 @@ find_package(Boost 1.53 REQUIRED COMPONENTS
     regex
     chrono
 )
-add_definitions( -DBOOST_LOG_DYN_LINK )
 
 find_package(Threads REQUIRED)
 
