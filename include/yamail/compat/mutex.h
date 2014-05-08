@@ -25,8 +25,9 @@ YAMAIL_FQNS_COMPAT_BEGIN
 // mutex
 using std::mutex;
 using std::recursive_mutex;
-using std::timed_mutex;
-using std::recursive_timed_mutex;
+// not supported in gcc 4.9
+//using std::timed_mutex; 
+//using std::recursive_timed_mutex;
 using std::lock_guard;
 using std::unique_lock;
 using std::once_flag;
@@ -52,7 +53,8 @@ public:
 using std::condition_variable;
 using std::condition_variable_any;
 using std::cv_status;
-using std::notify_all_at_thread_exit;
+// not supported in gcc 4.9
+// using std::notify_all_at_thread_exit;
 #else
 // mutex
 using boost::mutex;
