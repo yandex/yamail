@@ -6,6 +6,7 @@
 #include <stdexcept>
 
 YAMAIL_FQNS_CONCURRENCY_BEGIN
+namespace future {
 
 struct broken_promise : public std::exception {
   virtual const char *what() const throw () {
@@ -25,6 +26,7 @@ struct future_cancel : public std::exception {
   }
 };
 
+} // namespace future
 YAMAIL_FQNS_CONCURRENCY_END
 
 #endif //_YPLATFORM_FUTURE_FUTURE_EXCEPTIONS_HPP_

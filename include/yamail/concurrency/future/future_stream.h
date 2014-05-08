@@ -11,6 +11,7 @@
 #include <boost/optional.hpp>
 
 YAMAIL_FQNS_CONCURRENCY_BEGIN
+namespace future {
 
 class end_of_stream : public std::runtime_error {
   public:
@@ -233,5 +234,6 @@ future<void> get_needed_future() {
 YAMAIL_FQNS_COMPAT::shared_ptr<promise<item_p> > prom_;
   };
 
+}
 YAMAIL_FQNS_CONCURRENCY_END
 #endif // _YAMAIL_CONCURRENCY_FUTURE_FUTURE_FUTURE_STREAM_HPP_

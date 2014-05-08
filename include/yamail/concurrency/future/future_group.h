@@ -13,6 +13,7 @@
 
 
 YAMAIL_FQNS_CONCURRENCY_BEGIN
+namespace future {
 
 class future_or_func_impl : ::boost::noncopyable {
   public:
@@ -169,5 +170,6 @@ template<typename T>
     return comb<T>(x);
   }
 
+}
 YAMAIL_FQNS_CONCURRENCY_END
-#endif _YAMAIL_CONCURRENCY_FUTURE_FUTURE_FUTURE_GROUP_HPP_
+#endif // _YAMAIL_CONCURRENCY_FUTURE_FUTURE_FUTURE_GROUP_HPP_
