@@ -37,7 +37,8 @@ using std::future_category;
 
 // thread
 using std::thread;
-using std::this_thread;
+// using std::this_thread;
+namespace this_thread = std::this_thread;
 
 #else
 // atomic
