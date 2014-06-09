@@ -13,6 +13,7 @@
 #else 
 # include <boost/atomic.hpp>
 # include <boost/thread.hpp>
+# include <boost/thread/future.hpp>
 #endif // HAVE_STD_THREAD
 
 YAMAIL_FQNS_COMPAT_BEGIN
@@ -22,6 +23,12 @@ YAMAIL_FQNS_COMPAT_BEGIN
 using std::atomic;
 using std::atomic_flag;
 using std::memory_order;
+using std::memory_order_relaxed;
+using std::memory_order_consume;
+using std::memory_order_acquire;
+using std::memory_order_release;
+using std::memory_order_acq_rel;
+using std::memory_order_seq_cst;
 
 // future
 using std::promise;
@@ -45,6 +52,12 @@ namespace this_thread = std::this_thread;
 using boost::atomic;
 using boost::atomic_flag;
 using boost::memory_order;
+using boost::memory_order_relaxed;
+using boost::memory_order_consume;
+using boost::memory_order_acquire;
+using boost::memory_order_release;
+using boost::memory_order_acq_rel;
+using boost::memory_order_seq_cst;
 
 // future
 using boost::promise;
@@ -60,7 +73,7 @@ using boost::future_category;
 
 // thread
 using boost::thread;
-using boost::this_thread;
+namespace this_thread = boost::this_thread;
 #endif
 
 YAMAIL_FQNS_COMPAT_END 
