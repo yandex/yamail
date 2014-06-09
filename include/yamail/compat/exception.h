@@ -25,7 +25,7 @@ using boost::current_exception;
 
 template <class E> 
 inline exception_ptr 
-make_exception_ptr (E const& e) noexcept 
+make_exception_ptr (E const& e) _noexcept 
 {
 #if 1
 	return boost::copy_exception (e);
