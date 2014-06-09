@@ -41,6 +41,10 @@
 #  define HAVE_STD_FUNCTION 1
 # endif
 
+# if !defined(HAVE_STD_FUNCTION)
+#  define HAVE_STD_MOVE 1
+# endif
+
 # if !defined(HAVE_STD_SHARED_PTR)
 #  define HAVE_STD_SHARED_PTR 1
 # endif
@@ -79,6 +83,10 @@
 #  define HAVE_STD_FUNCTION 0
 # endif
 
+# if !defined(HAVE_STD_FUNCTION)
+#  define HAVE_STD_MOVE 0
+# endif
+
 # if !defined(HAVE_STD_SHARED_PTR)
 #  define HAVE_STD_SHARED_PTR 0
 # endif
@@ -89,6 +97,7 @@
 
 # if !defined(HAVE_STD_THREAD)
 #  define HAVE_STD_THREAD 0
+#  define BOOST_THREAD_PROVIDES_FUTURE 1
 # endif
 
 # if !defined(HAVE_STD_UNORDERED)

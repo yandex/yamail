@@ -6,6 +6,7 @@
 #include <yamail/compat/chrono.h>
 #include <yamail/compat/exception.h>
 #include <yamail/compat/function.h>
+#include <yamail/compat/move.h>
 #include <yamail/compat/make_unique.h>
 #include <yamail/compat/mutex.h>
 #include <yamail/compat/shared_ptr.h>
