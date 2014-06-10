@@ -18,10 +18,13 @@ using std::exception_ptr;
 using std::rethrow_exception;
 using std::current_exception;
 using std::make_exception_ptr;
+
+template <typename E> void throw_exception (E const& e) { throw e; }
 #else
 using boost::exception_ptr;
 using boost::rethrow_exception;
 using boost::current_exception;
+using boost::throw_exception;
 
 template <class E> 
 inline exception_ptr 
