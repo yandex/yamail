@@ -16,9 +16,9 @@
 #include <boost/foreach.hpp>
 #include <boost/coroutine/coroutine.hpp>
 
+#include <yamail/concurrency/coroutine/clock_type.h>
 #include <yamail/concurrency/coroutine/detail/coroutine_base.h>
 #include <yamail/concurrency/coroutine/detail/flags.h>
-#include <yamail/concurrency/coroutine/detail/clock_type.h>
 #include <yamail/concurrency/coroutine/detail/css.h>
 
 #include <yamail/concurrency/spinlock.h>
