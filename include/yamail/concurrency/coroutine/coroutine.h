@@ -1,5 +1,5 @@
-#ifndef _YAMAIL_CONCURRENCY_COROUTINE_COROUTINE_MANAGER_H_
-#define _YAMAIL_CONCURRENCY_COROUTINE_COROUTINE_MANAGER_H_
+#ifndef _YAMAIL_CONCURRENCY_COROUTINE_COROUTINE_H_
+#define _YAMAIL_CONCURRENCY_COROUTINE_COROUTINE_H_
 #include <yamail/config.h>
 #include <yamail/concurrency/coroutine/namespace.h>
 
@@ -292,4 +292,4 @@ YAMAIL_FQNS_CONCURRENCY_COROUTINE_END
 #include <yamail/concurrency/coroutine/round_robin.h>
 #include <yamail/concurrency/coroutine/coroutine_manager.inl>
 
-#endif // _YAMAIL_CONCURRENCY_COROUTINE_COROUTINE_MANAGER_H_
+#endif // _YAMAIL_CONCURRENCY_COROUTINE_COROUTINE_H_
