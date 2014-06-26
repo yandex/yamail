@@ -4,8 +4,8 @@
 %define _rpmdir		.
 
 Name:		libyamail
-Version:	%{yandex_mail_version}
-Release:	%{yandex_mail_release}
+Version:	1.0
+Release:	2
 
 Summary:	yamail library
 License:	none
