@@ -5,6 +5,7 @@
 #include <yamail/compat/system.h>
 
 
+#include <boost/exception/exception_ptr.hpp>
 #include <boost/exception/all.hpp>
 #include <boost/exception/info.hpp>
 #include <boost/exception/info_tuple.hpp>
