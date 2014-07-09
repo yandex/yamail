@@ -7,6 +7,9 @@
 
 #include <yamail/compat/function.h>
 #include <yamail/compat/shared_ptr.h>
+#include <yamail/compat/bind.h>
+#include <yamail/compat/move.h>
+#include <yamail/compat/type_traits.h> // result_of
 
 #include <yamail/concurrency/future/future_exceptions.h>
 #include <yamail/concurrency/future/future_detail.h>
@@ -225,7 +228,85 @@ template<typename R> class future
       impl_->cancel();
     }
 
-    callback_reference add_callback(const YAMAIL_FQNS_COMPAT::function<void (void)> &f) {
+    template <typename F, typename P>
+    struct assign_future 
+    {
+    	future this_future;
+    	F func;
+    	P prom;
+    	assign_future (future const& fu, F f, P p) 
+    	  : this_future (fu)
+    	  , func (YAMAIL_FQNS_COMPAT::move (f))
+    	  , prom (YAMAIL_FQNS_COMPAT::move (p)) 
+    	{
+    	}
+
+    	void operator() ()
+    	{
+    		try {
+    		  set_prom<F> ();
+    		}
+    		catch (...)
+    		{
+          prom.set_exception (YAMAIL_FQNS_COMPAT::current_exception());
+        }
+      }
+
+      template <typename FF,
+        typename boost::enable_if<
+          boost::is_same< 
+              typename YAMAIL_FQNS_COMPAT::result_of<FF(future&)>::type
+            , void
+          >, int>::type = 0>
+      void set_prom ()
+      {
+    	  func (this_future);
+    	  prom.set ();
+      }
+
+      template <typename FF,
+        typename boost::disable_if<
+          boost::is_same< 
+              typename YAMAIL_FQNS_COMPAT::result_of<FF(future&)>::type
+            , void
+          >, int>::type = 0>
+      void set_prom ()
+      {
+    	  prom.set (func (this_future));
+      }
+    };
+
+    template <typename F>
+    future<typename YAMAIL_FQNS_COMPAT::result_of<F(future&)>::type>
+#if YAMAIL_CPP >= 11
+    then (F&& func) // C++11 required
+#else
+    then (F func) 
+#endif
+    {
+    	typedef typename YAMAIL_FQNS_COMPAT::result_of<F(future&)>::type
+    	  func_return_type;
+
+    	typedef promise<func_return_type> promise_type;
+
+    	promise_type prom;
+
+      add_callback (
+        assign_future<F, promise_type> (*this, 
+#if YAMAIL_CPP >= 11
+          std::forward<F> (func), 
+#else
+          YAMAIL_FQNS_COMPAT::move (func),
+#endif
+          prom)
+      );
+
+    	return prom;
+    }
+
+    callback_reference add_callback(
+        const YAMAIL_FQNS_COMPAT::function<void (void)> &f) 
+    {
       return impl_->add_callback(f);
     }
 
@@ -312,6 +393,7 @@ template<> class future<void> : private future<int> {
     using base_type::wait;
     using base_type::set_needed;
     using base_type::add_callback;
+    using base_type::then;
     using base_type::remove_callback;
 
     void get() const {
@@ -367,6 +449,7 @@ template<typename R > class future< R& >: private future< R* >
     using base_type::ready;
     using base_type::wait;
     using base_type::add_callback;
+    using base_type::then;
     using base_type::set_needed;
 
     operator R&() const {

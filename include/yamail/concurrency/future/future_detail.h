@@ -185,7 +185,8 @@ add_callback(const YAMAIL_FQNS_COMPAT::function<void (void)> f) {
   cb_ref.empty_ = false;
         return cb_ref;
 }
-      void remove_callback(const callback_reference &ref) {
+
+void remove_callback(const callback_reference &ref) {
   YAMAIL_FQNS_COMPAT::unique_lock<YAMAIL_FQNS_COMPAT::mutex> lck(mutex_);
         if (callbacks_in_progress_) {
     while (callbacks_in_progress_)
