@@ -122,7 +122,54 @@ template<typename R> class promise : public untyped_promise
     YAMAIL_FQNS_COMPAT::shared_ptr<detail::promise_impl<R> > impl_;
 };
 
-template<typename R> class future
+template <typename R> class future_unwrapper {};
+
+template <typename> class future;
+template<typename R2> class future_unwrapper<future<R2> >
+{
+	typedef future<future<R2> > inner_future_type;
+
+	class setter
+	{
+		inner_future_type& inner_;
+		promise<R2> proxy_;
+
+	public:
+		setter (inner_future_type& inner, promise<R2> const& proxy) 
+		  : inner_ (inner)
+		  , proxy_ (proxy)
+		{
+    }
+
+    void operator() ()
+    {
+    	try {
+    	  proxy_.set (inner_.get ());
+      }
+      catch (...)
+      {
+      	proxy_.set_exception (YAMAIL_FQNS_COMPAT::current_exception ());
+      }
+    }
+  };
+
+public:
+	inner_future_type      & this_future ()       
+	{ return *static_cast<inner_future_type*> (this); }
+
+	inner_future_type const& this_future () const 
+	{ return *static_cast<inner_future_type const*> (this); }
+
+	future<R2> unwrap ()
+	{
+    promise<R2> prom;
+
+    this_future ().add_callback (setter (this_future (), prom));
+    return prom;
+  }
+};
+
+template<typename R> class future : public future_unwrapper<R>
 {
   public:
     //future() : impl_(new detail::future_impl<R>) {}; // creates an empty future
@@ -394,6 +441,7 @@ template<> class future<void> : private future<int> {
     using base_type::set_needed;
     using base_type::add_callback;
     using base_type::then;
+//    using base_type::unwrap;
     using base_type::remove_callback;
 
     void get() const {
@@ -450,6 +498,7 @@ template<typename R > class future< R& >: private future< R* >
     using base_type::wait;
     using base_type::add_callback;
     using base_type::then;
+    using base_type::unwrap;
     using base_type::set_needed;
 
     operator R&() const {
@@ -499,6 +548,26 @@ template<> class future_wrapper<void>
     promise<void> ft_;
     YAMAIL_FQNS_COMPAT::function<void (void)> fn_;
 };
+
+#if YAMAIL_CPP >= 11
+template <typename T>
+future<typename YAMAIL_FQNS_COMPAT::type_traits::decay<T>::type>
+make_future (T&& value)
+{
+	promise<typename YAMAIL_FQNS_COMPAT::type_traits::decay<T>::type> ret;
+	ret.set (std::forward<T> (value));
+	return ret;
+}
+#else
+template <typename T>
+future<typename YAMAIL_FQNS_COMPAT::type_traits::decay<T>::type>
+make_future (T value)
+{
+	promise<typename YAMAIL_FQNS_COMPAT::type_traits::decay<T>::type> ret;
+	ret.set (YAMAIL_FQNS_COMPAT::move<T> (value));
+	return ret;
+}
+#endif
 
 } // namespace future
 YAMAIL_FQNS_CONCURRENCY_END

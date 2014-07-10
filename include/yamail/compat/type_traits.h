@@ -8,14 +8,17 @@
 # include <type_traits>
 #else 
 # include <boost/utility/result_of.hpp>
+# include <boost/type_traits.hpp>
 #endif // HAVE_STD_TYPE_TRAITS
 
 YAMAIL_FQNS_COMPAT_BEGIN
 
 #if defined(HAVE_STD_TYPE_TRAITS) && HAVE_STD_TYPE_TRAITS
 using std::result_of;
+namespace type_traits = std;
 #else
 using boost::result_of;
+namespace type_traits = boost;
 #endif
 
 YAMAIL_FQNS_COMPAT_END
