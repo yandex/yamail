@@ -54,10 +54,16 @@ class untyped_promise {
       f_->set_exception(YAMAIL_FQNS_COMPAT::make_exception_ptr (e));
     }
 
+#if __cplusplus >= 201103L
+    template<typename E> void set_exception( E&& e ) {
+      this->set_exception_core(std::forward<E> (e), 
+          ::boost::is_base_of<YAMAIL_FQNS::error, E>());
+    }
+#else
     template<typename E> void set_exception( E const & e ) {
       this->set_exception_core(e, ::boost::is_base_of<YAMAIL_FQNS::error, E>());
     }
-
+#endif
     // Attempt's a 'throw', assuming there is an exception set
     void set_current_exception() {
       f_->set_exception(YAMAIL_FQNS_COMPAT::current_exception());
@@ -66,6 +72,12 @@ class untyped_promise {
     void set_exception( const YAMAIL_FQNS_COMPAT::exception_ptr & e) {
       f_->set_exception(e);
     }
+
+#if __cplusplus >= 201103L
+    void set_exception(YAMAIL_FQNS_COMPAT::exception_ptr&& e) {
+      f_->set_exception(std::move (e));
+    }
+#endif
 
     // Add a cancel handler, which will be invoked if
     // future&lt;T&gt;::cancel() is ever called
@@ -99,9 +111,14 @@ template<typename R> class promise : public untyped_promise
       return *this;
     }
 
-    void set( R const & r ) { // sets the value r and transitions to ready()
+    void set( R const& r ) { // sets the value r and transitions to ready()
       impl_->f_->set_value(r, *impl_->value_);
     }
+#if __cplusplus >= 201103L
+    void set (R&& r) {
+    	impl_->f_->set_value (std::forward<R> (r), *impl_->value_);
+    }
+#endif
 
     void set_or_throw( R const & r) {
       if (!impl_->f_->set_value(r, *impl_->value_))

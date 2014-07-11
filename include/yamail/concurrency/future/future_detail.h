@@ -57,9 +57,14 @@ public:
   virtual T get() const {
     return *value_;
   }
-  void set(const T& value) {
+  void set(T const& value) {
     value_ = compat::shared_ptr<T>(new T(value));
   }
+#if __cplusplus >= 201103L
+  void set(T&& value) {
+    value_ = compat::shared_ptr<T>(new T(std::forward<T> (value)));
+  }
+#endif
   virtual ~return_value_real() {}
 private:
   compat::shared_ptr<T> value_;
@@ -137,7 +142,7 @@ template <typename R>
   }
 
 template <typename R>
-  bool set_value( const R &r, return_value_real<R> &value) {
+  bool set_value(R const& r, return_value_real<R> &value) {
     YAMAIL_FQNS_COMPAT::unique_lock<YAMAIL_FQNS_COMPAT::mutex> lck(mutex_);
     if (has_value_ || has_exception_) return false;
     value.set(r);
@@ -153,6 +158,27 @@ void set_exception( const YAMAIL_FQNS_COMPAT::exception_ptr &e) {
   has_exception_ = true;
   notify(lck);
 }
+
+#if __cplusplus >= 201103L
+template <typename R>
+  bool set_value(R&& r, return_value_real<R> &value) {
+    YAMAIL_FQNS_COMPAT::unique_lock<YAMAIL_FQNS_COMPAT::mutex> lck(mutex_);
+    if (has_value_ || has_exception_) return false;
+    value.set(std::forward<R> (r));
+    has_value_ = true;
+    notify(lck);
+    return true;
+  }
+
+void set_exception(YAMAIL_FQNS_COMPAT::exception_ptr&& e) {
+  YAMAIL_FQNS_COMPAT::unique_lock<YAMAIL_FQNS_COMPAT::mutex> lck(mutex_);
+  if (has_value_ || has_exception_) return;
+  exception_ = std::move (e);
+  has_exception_ = true;
+  notify(lck);
+}
+#endif
+
 void cancel() {
   YAMAIL_FQNS_COMPAT::unique_lock<YAMAIL_FQNS_COMPAT::mutex> lck(mutex_);
   if (has_value_ || has_exception_) return; // ignore 
