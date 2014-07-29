@@ -5,7 +5,7 @@
 
 Name:		libyamail
 Version:	1.0
-Release:	2
+Release:	3
 
 Summary:	yamail library
 License:	none
