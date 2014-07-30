@@ -57,7 +57,7 @@ xsl_transform(
 set_target_properties(
          ${PROJECT_NAME}-docbook PROPERTIES
          EXCLUDE_FROM_DEFAULT_BUILD TRUE
-         EXCLUDE_FROM_ALL TRUE
+         EXCLUDE_FROM_ALL TRUE)
 
 xsl_transform(
   ${CMAKE_CURRENT_BINARY_DIR}/html
@@ -80,7 +80,7 @@ xsl_transform(
 set_target_properties(
          ${PROJECT_NAME}-html PROPERTIES
          EXCLUDE_FROM_DEFAULT_BUILD TRUE
-         EXCLUDE_FROM_ALL TRUE
+         EXCLUDE_FROM_ALL TRUE)
 
 add_custom_command(TARGET ${PROJECT_NAME}-html
   POST_BUILD
