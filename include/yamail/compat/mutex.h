@@ -19,7 +19,11 @@
 #include <boost/thread/cv_status.hpp>
 #endif // HAVE_STD_THREAD
 
+#if defined(GENERATING_DOCUMENTATION)
+namespace yamail { namespace compat {
+#else
 YAMAIL_FQNS_COMPAT_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 #if defined(HAVE_STD_THREAD) && HAVE_STD_THREAD
 // mutex
@@ -78,6 +82,11 @@ using boost::condition_variable_any;
 using boost::cv_status;
 using boost::notify_all_at_thread_exit;
 #endif
-YAMAIL_FQNS_COMPAT_END 
+
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
+YAMAIL_FQNS_COMPAT_END
+#endif // GENERATING_DOCUMENTATION
 
 #endif // _YAMAIL_COMPAT_MUTEX_H_

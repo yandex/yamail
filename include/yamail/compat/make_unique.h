@@ -13,7 +13,11 @@
 #include <utility>
 #endif // HAVE_STD_MAKE_UNIQUE
 
+#if defined(GENERATING_DOCUMENTATION)
+namespace yamail { namespace compat {
+#else
 YAMAIL_FQNS_COMPAT_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 #if defined(HAVE_STD_MAKE_UNIQUE) && HAVE_STD_MAKE_UNIQUE
 using std::make_unique;
@@ -48,6 +52,10 @@ template<class T, class... Args>
     make_unique(Args&&...) = delete;
 #endif
 
+#if defined(GENERATING_DOCUMENTATION)
+namespace yamail { namespace compat {
+#else
 YAMAIL_FQNS_COMPAT_END 
+#endif // GENERATING_DOCUMENTATION
 
 #endif // _YAMAIL_COMPAT_MAKE_UNIQUE_H_

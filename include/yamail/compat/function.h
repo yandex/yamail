@@ -15,7 +15,11 @@
 # include <boost/function.hpp>
 #endif // __HAVE_STD_FUNCTION
 
+#if defined(GENERATING_DOCUMENTATION)
+namespace yamail { namespace compat {
+#else
 YAMAIL_FQNS_COMPAT_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 #if defined(HAVE_STD_FUNCTION) && HAVE_STD_FUNCTION
 using std::function;
@@ -23,6 +27,10 @@ using std::function;
 using boost::function;
 #endif // __HAVE_STD_FUNCTION
 
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
 YAMAIL_FQNS_COMPAT_END
+#endif // GENERATING_DOCUMENTATION
 
 #endif /* _YAMAIL_COMPAT_FUNCTION_H_ */

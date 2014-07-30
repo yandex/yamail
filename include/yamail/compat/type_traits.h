@@ -11,7 +11,11 @@
 # include <boost/type_traits.hpp>
 #endif // HAVE_STD_TYPE_TRAITS
 
+#if defined(GENERATING_DOCUMENTATION)
+namespace yamail { namespace compat {
+#else
 YAMAIL_FQNS_COMPAT_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 #if defined(HAVE_STD_TYPE_TRAITS) && HAVE_STD_TYPE_TRAITS
 using std::result_of;
@@ -21,5 +25,10 @@ using boost::result_of;
 namespace type_traits = boost;
 #endif
 
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
 YAMAIL_FQNS_COMPAT_END
+#endif // GENERATING_DOCUMENTATION
+
 #endif // _YAMAIL_COMPAT_TYPE_TRAITS_H_

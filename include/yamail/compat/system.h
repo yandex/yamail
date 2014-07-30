@@ -11,7 +11,11 @@
 # include <boost/system/system_error.hpp>
 #endif // HAVE_STD_SYSTEM
 
+#if defined(GENERATING_DOCUMENTATION)
+namespace yamail { namespace compat {
+#else
 YAMAIL_FQNS_COMPAT_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 #if defined(HAVE_STD_SYSTEM) && HAVE_STD_SYSTEM
 using std::system_error;
@@ -41,6 +45,10 @@ using ::boost::system::is_error_code_enum;
 using ::boost::system::is_error_condition_enum;
 #endif
 
-YAMAIL_FQNS_COMPAT_END 
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
+YAMAIL_FQNS_COMPAT_END
+#endif // GENERATING_DOCUMENTATION
 
 #endif // _YAMAIL_COMPAT_SYSTEM_H_

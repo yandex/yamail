@@ -11,7 +11,11 @@
 # include <boost/exception/exception.hpp>
 #endif // HAVE_STD_EXCEPTION
 
+#if defined(GENERATING_DOCUMENTATION)
+namespace yamail { namespace compat {
+#else
 YAMAIL_FQNS_COMPAT_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 #if defined(HAVE_STD_EXCEPTION) && HAVE_STD_EXCEPTION
 using std::exception_ptr;
@@ -39,6 +43,10 @@ make_exception_ptr (E const& e) _noexcept
 }
 #endif
 
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
 YAMAIL_FQNS_COMPAT_END 
+#endif // GENERATING_DOCUMENTATION
 
 #endif // _YAMAIL_COMPAT_EXCEPTION_H_
