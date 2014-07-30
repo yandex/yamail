@@ -10,7 +10,6 @@
 #include <yamail/compat/make_unique.h>
 #include <yamail/compat/mutex.h>
 #include <yamail/compat/shared_ptr.h>
-// #include <yamail/compat/string.h>
 #include <yamail/compat/system.h>
 #include <yamail/compat/thread.h>
 #include <yamail/compat/type_traits.h>

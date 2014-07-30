@@ -16,7 +16,11 @@
 # include <boost/thread/future.hpp>
 #endif // HAVE_STD_THREAD
 
+#if defined(GENERATING_DOCUMENTATION)
+namespace yamail { namespace compat {
+#else
 YAMAIL_FQNS_COMPAT_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 #if defined(HAVE_STD_THREAD) && HAVE_STD_THREAD
 // atomic
@@ -76,6 +80,10 @@ using boost::thread;
 namespace this_thread = boost::this_thread;
 #endif
 
-YAMAIL_FQNS_COMPAT_END 
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
+YAMAIL_FQNS_COMPAT_END
+#endif // GENERATING_DOCUMENTATION
 
 #endif // _YAMAIL_COMPAT_THREAD_H_

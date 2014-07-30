@@ -1,0 +1,35 @@
+[/
+ / Copyright (c) 2008-2012 Nikki Chumakov (nikki at yandex-team dot ru)
+ /
+ / Distributed under the Boost Software License, Version 1.0. (See accompanying
+ / file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+ /]
+
+[section:SimpleQueue Simple Queue requirements]
+
+A simple queue must meet the requirements of `CopyConstructible` types (C++ Std,
+20.1.3), and the requirements of `Assignable` types (C++ Std, 23.1).
+
+In the table below, `X` denotes a simple queue class, and `a` denotes a 
+value of `X`, `Y` denotes X::value_type type, and `v` denotes a value of `Y`, 
+and `e` denotes the reference to `Y` value.
+
+[table SimpleQueue requirements
+  [[expression] [return type] [assertion/note[br]pre/post-conditions]]
+  [
+    [`a.push_i(v);`]
+    []
+    [
+      post: ...
+    ]
+  ]
+  [
+    [`a.pop_i(e);`]
+    []
+    [
+      post: `e` contains the value from `a`.
+    ]
+  ]
+]
+
+[endsect]

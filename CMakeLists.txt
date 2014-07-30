@@ -81,3 +81,5 @@ set(includedir  ${CMAKE_INSTALL_PREFIX}/include)
 
 install(DIRECTORY ${INCLUDE_DIR}/yamail DESTINATION include)
 install(TARGETS ${TARGET_LIBRARY} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+  add_subdirectory(doc)

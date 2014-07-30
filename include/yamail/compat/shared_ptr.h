@@ -12,7 +12,11 @@
 # include <boost/weak_ptr.hpp>
 #endif // HAVE_STD_SHARED_PTR_H_
 
+#if defined(GENERATING_DOCUMENTATION)
+namespace yamail { namespace compat {
+#else
 YAMAIL_FQNS_COMPAT_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 #if defined(HAVE_STD_SHARED_PTR) && HAVE_STD_SHARED_PTR
 using std::shared_ptr;
@@ -34,6 +38,10 @@ using boost::const_pointer_cast;
 using boost::dynamic_pointer_cast;
 #endif
 
-YAMAIL_FQNS_COMPAT_END 
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
+YAMAIL_FQNS_COMPAT_END
+#endif // GENERATING_DOCUMENTATION
 
 #endif // _YAMAIL_COMPAT_SHARED_PTR_H_

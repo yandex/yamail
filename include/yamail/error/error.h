@@ -15,7 +15,11 @@
 #include <exception>
 #include <string>
 
+#if defined(GENERATING_DOCUMENTATION)
+namespace yamail {
+#else
 YAMAIL_FQNS_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 struct tag_throw_what {};
 struct tag_throw_private {};
@@ -38,37 +42,81 @@ typedef ::boost::error_info<struct tag_throw_error_code,int> error_code_info;
 typedef ::boost::error_info<struct tag_throw_system, 
     YAMAIL_FQNS_COMPAT::error_code> system_error;
 
-// generic error class
+////////////////////////////////////////////////////////////////////////////////
+/// Generic error class.
+/** Error is derived class from boost::exception and std::exception.
+ * boost::exception is streaming extended attributes (such as information about
+ * functions, files, lines and private messages). 
+ * std::exception is used as standard c++ exception interface.
+ */
 class error
   : public ::boost::exception
   , public ::std::exception
 {
 public:
+  /// Constructs an error instance.
+  /**
+   * This constructor creates an error instance with class
+   * <tt>yamail::error</tt>.
+   */
   inline error (void) 
   { 
-  	*this << 
-  	  error_info (std::string ("yamail::error"), 
+  	*this << error_info (std::string ("yamail::error"), 
   	              std::string ("error"), std::string ()); 
   }
 
+  /// Constructs an error instance.
+  /**
+   * This constructor creates an error instance with given class.
+   * @param cl The error class.
+   */
   explicit inline error (const std::string& cl) 
   {
     *this << error_info (cl, std::string ("error"), std::string ());
   }
 
+  /// Constructs an error instance.
+  /**
+   * This constructor creates an error instance with given class and
+   * \em public message.
+   * @param cl The error class.
+   * @param pub The public error message.
+   */
   inline error (std::string const& cl, std::string const& pub) 
   {
     *this << error_info (cl, pub, std::string ());
   }
 
+  /// Constructs an error instance.
+  /**
+   * This constructor creates an error instance with given class and
+   * \em public and \em private messages.
+   * @param cl The error class.
+   * @param pub The public error message.
+   * @param prv The private error message.
+   */
   inline error (std::string const& cl, std::string const& pub, 
                 std::string const& prv) 
   {
     *this << error_info (cl, pub, prv);
   }
 
+  /// Destructor.
+  /** 
+   * Destructs error instance.
+   */
   virtual inline ~error () throw () {}
 
+  /// Get string identifying exception.
+  /**
+   * Returns a null terminated character sequence that may be used to identify
+   * the exception.
+   *
+   * @returns A pointer to a c-string with content related to the exception. 
+   *          This is guaranteed to be valid at least until the exception object
+   *          from which it is obtained is destroyed or until a non-const member
+   *          function of the exception object is called.
+   */
   virtual const char* what() const throw();
 
   std::string error_class () const throw ();
@@ -111,5 +159,10 @@ struct std_error :
           ::boost::throw_file(__FILE__) << ::boost::throw_line(__LINE__)      
 #endif
 
+#if defined(GENERATING_DOCUMENTATION)
+}
+#else
 YAMAIL_FQNS_END
+#endif // GENERATING_DOCUMENTATION
+
 #endif // _YAMAIL_ERROR_ERROR_H_

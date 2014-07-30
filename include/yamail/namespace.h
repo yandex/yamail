@@ -23,7 +23,11 @@ YAMAIL_NS_END
 // namespace YAMAIL_NS_ALIAS = YAMAIL_FQNS;
 // namespace YAMAIL_NS_ALIAS_SHORT = YAMAIL_FQNS;
 
+#ifdef GENERATING_DOCUMENTATION
+namespace y { using namespace yamail; }
+#else
 namespace YAMAIL_NS_ALIAS { using namespace YAMAIL_FQNS; }
 namespace YAMAIL_NS_ALIAS_SHORT { using namespace YAMAIL_FQNS; }
+#endif
 
 #endif // _YAMAIL_NAMESPACE_H_
