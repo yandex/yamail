@@ -3,7 +3,21 @@
 #include <yamail/config.h>
 #include <yamail/log/namespace.h>
 
+#include <yamail/compat/shared_ptr.h>
+
+#include <boost/type_erasure/builtin.hpp>
+#include <boost/type_erasure/operators.hpp>
+#include <boost/mpl/vector.hpp>
+#include <boost/variant.hpp>
+
+#include <boost/range/adaptor/map.hpp>
+#include <boost/range/algorithm/copy.hpp>
+
 #include <string>
+#include <map>
+#include <utility> // std::pair
+
+#include <iostream>
 
 #if defined(GENERATING_DOCUMENTATION)
 namespace yamail { namespace log {
@@ -50,10 +64,11 @@ enum well_known_field_enum {
 	_key_enum_last
 };
 
-_constexpr inline char const& 
+//_constexpr 
+inline char const* 
 well_known_field (well_known_field_enum f) _noexcept
 {
-	static char* fields[] = {
+	static _constexpr char const* fields[] = {
 		"TIME", "SERVICE", "PID", "PPID", "TID", "PRIORITY"
 	};
 
@@ -64,7 +79,7 @@ well_known_field (well_known_field_enum f) _noexcept
 typedef boost::type_erasure::any<
   boost::mpl::vector<
       boost::type_erasure::copy_constructible<>
-    , boost::type_erasure::typeid<>
+    , boost::type_erasure::typeid_<>
     , boost::type_erasure::ostreamable<>
     , boost::type_erasure::relaxed
   >
@@ -74,6 +89,13 @@ typedef boost::variant<well_known_field_enum, std::string> field_name;
 typedef std::pair<field_name const, field_value> field_type;
 
 struct deleted_t {};
+
+template <typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<< (std::basic_ostream<CharT, Traits>& os, deleted_t const&)
+{
+	return os << "(deleted)";
+}
 
 namespace { deleted_t deleted; }
 
@@ -106,23 +128,102 @@ make_field (well_known_field_enum key, T const& value)
 /// Typed log attributes map.
 class typed_attributes_map 
 {
+protected:
+  typedef std::map<field_name const, field_value> map_type;
+
+  struct proxy;
+  typedef YAMAIL_FQNS_COMPAT::shared_ptr<proxy> proxy_ptr;
+
+  struct proxy 
+  {
+  	proxy (proxy_ptr parent = proxy_ptr ())
+  	  : parent (parent)
+  	{
+    }
+
+    proxy_ptr parent;
+    map_type map;
+  };
+
+  map_type      & map ()       { return proxy_->map; }
+  map_type const& map () const { return proxy_->map; }
+
+  proxy_ptr      & parent ()       { return proxy_->parent; }
+  proxy_ptr const& parent () const { return proxy_->parent; }
+
 public:
+#if YAMAIL_CPP >= 11
   /// Constructs insternal map from initiaizer_list.
+  /**
+   * @param fields fileds definition list.
+   * @param parent parent typed_attributes_map.
+   */
   typed_attributes_map (
     std::initializer_list<field_type> fields, 
-    typed_attributes_map* parent = 0)
-  : parent_ (parent)
+    proxy_ptr parent = proxy_ptr ())
+  : proxy_ (new proxy)
   {
-  	map_.insert (std::move (fields));
+  	proxy_->parent = parent;
+  	proxy_->map.insert (std::move (fields));
   }
 
-protected:
-  typedef std::map<field_name const, any> map_type;
+  /// Replaces of adds given fields.
+  /**
+   * @param fields list of fields to replace or add.
+   * @returns reference to this typed_attributes_map.
+   */
+  typed_attributes_map&
+  replace (std::initializer_list<field_type> fields)
+  {
+  	for (auto&& field: fields)
+    {
+    	proxy_->map[std::get<0> (field)] = std::move (std::get<1> (field));
+    }
+
+    return *this;
+  }
+
+  /// Removes given fields from internal map.
+  /**
+   * @param names list of the names.
+   * @returns reference to this typed_attributes_map.
+   */
+  typed_attributes_map&
+  erase (std::initializer_list<field_name> names)
+  {
+  	for (auto const& name: names)
+    {
+      proxy_->map.erase (name);
+    }
+
+    return *this;
+  }
+
+  /// Created new scoped typed_attributes_map.
+  /** 
+   * @param to_add fields list to be added into scoped map.
+   * @param to_del fields names to be deleted from scoped map.
+   * @returns new scoped map instance.
+   */
+  typed_attributes_map
+  scoped_change (std::initializer_list<field_type> to_add,
+    std::initializer_list<field_name> to_del = 
+        std::initializer_list<field_name> ())
+  {
+  	typed_attributes_map tmp (to_add, proxy_);
+
+  	boost::copy (
+  	  to_del | boost::adaptors::transformed (
+  	    [] (field_name name) { return field_type (std::move (name), deleted); }
+  	  ),
+  	  std::inserter (tmp.proxy_->map, tmp.proxy_->map.end ()));
+
+  	return tmp;
+  }
+#endif // YAMAIL_CPP >= 11
 
 private:
-  typed_attributes_map* parent_;
-  map_type map_;
-
+  proxy_ptr proxy_;
 };
 
 
