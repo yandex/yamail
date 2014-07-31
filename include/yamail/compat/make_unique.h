@@ -4,6 +4,8 @@
 #include <yamail/compat/config.h>
 #include <yamail/compat/namespace.h>
 
+#if YAMAIL_CPP >= 11 // std::unique_ptr defined in c++11+
+
 #if defined(HAVE_STD_MAKE_UNIQUE) && HAVE_STD_MAKE_UNIQUE
 # include <memory>
 #else 
@@ -57,5 +59,7 @@ namespace yamail { namespace compat {
 #else
 YAMAIL_FQNS_COMPAT_END 
 #endif // GENERATING_DOCUMENTATION
+
+#endif // YAMAIL_CPP >= 11 // std::unique_ptr defined in c++11+
 
 #endif // _YAMAIL_COMPAT_MAKE_UNIQUE_H_

@@ -41,7 +41,7 @@
 #  define HAVE_STD_FUNCTION 1
 # endif
 
-# if !defined(HAVE_STD_FUNCTION)
+# if !defined(HAVE_STD_MOVE)
 #  define HAVE_STD_MOVE 1
 # endif
 
@@ -83,7 +83,7 @@
 #  define HAVE_STD_FUNCTION 0
 # endif
 
-# if !defined(HAVE_STD_FUNCTION)
+# if !defined(HAVE_STD_MOVE)
 #  define HAVE_STD_MOVE 0
 # endif
 
