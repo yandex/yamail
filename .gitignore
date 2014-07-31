@@ -3,7 +3,6 @@ build/
 *.swp
 *.swo
 *.h-
-*.cmake
 CMakeFiles/
 Makefile
 CMakeCache.txt
