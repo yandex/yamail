@@ -122,7 +122,7 @@ struct list_of
 	_constexpr list_of () : list_ (0), size_ (0) {}
 
   template <typename A0>
-	list_of (A0 const& a0, storage<list> l = storage<list> ())
+	explicit list_of (A0 const& a0, storage<list> l = storage<list> ())
 	: list_ (new (&l.data) list (a0))
 	, size_ (0)
 	{

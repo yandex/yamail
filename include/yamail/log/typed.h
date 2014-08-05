@@ -6,6 +6,7 @@
 #include <yamail/compat/shared_ptr.h>
 
 #include <yamail/utility/list_of.h>
+#include <yamail/utility/update_iterator.h>
 
 #include <boost/type_erasure/builtin.hpp>
 #include <boost/type_erasure/operators.hpp>
@@ -28,6 +29,7 @@ namespace yamail { namespace log {
 #else
 YAMAIL_FQNS_LOG_BEGIN
 #endif // GENERATING_DOCUMENTATION
+namespace typed {
 
 /// Log field definition types enum.
 enum type_t {
@@ -41,10 +43,12 @@ enum type_t {
 
 /// Rules definition enum.
 enum rule_t {
-	RULE_MANDATORY,     ///< Mandatory field.
-	RULE_OPTIONAL,      ///< Optional field.
-	RULE_GENERATED,     ///< Field generated with library.
-	RULE_AUTO           ///< User supply or libaray generates.
+	  RULE_MANDATORY      ///< Mandatory field.
+	, RULE_OPTIONAL       ///< Optional field.
+	, RULE_IGNORED        ///< Field ignored, type is not checked.
+	, RULE_STRICT_IGNORED ///< Field ignored, but type is checked.
+	, RULE_GENERATED      ///< Field generated with library.
+	, RULE_AUTO           ///< User supply or libaray generates.
 };
 
 /// Fields definition structure.
@@ -92,6 +96,14 @@ typedef boost::type_erasure::any<
 typedef boost::variant<well_known_field_enum, std::string> field_name;
 typedef std::pair<field_name const, field_value> field_type;
 
+template <typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<< (std::basic_ostream<CharT, Traits>& os, field_type const& ft)
+{
+	return os << '[' << std::get<0> (ft) 
+	  << "=>" << std::get<1> (ft) << ']';
+}
+
 struct deleted_t {};
 
 template <typename CharT, typename Traits>
@@ -102,6 +114,18 @@ operator<< (std::basic_ostream<CharT, Traits>& os, deleted_t const&)
 }
 
 namespace { deleted_t deleted; }
+
+namespace detail {
+struct make_deleted
+{
+  template <class> struct result { typedef field_type type; };
+
+  field_type operator() (field_name const& name) const
+  { 
+    return field_type ("", ""); 
+  }
+};
+} // namespace detail
 
 typedef YAMAIL_FQNS_UTILITY::list_of<field_type> field_list;
 typedef YAMAIL_FQNS_UTILITY::list_of<field_name> name_list;
@@ -133,7 +157,7 @@ make_field (well_known_field_enum key, T const& value)
 }
 
 /// Typed log attributes map.
-class typed_attributes_map 
+class attributes_map 
 {
 protected:
   typedef std::map<field_name const, field_value> map_type;
@@ -158,29 +182,29 @@ protected:
   proxy_ptr      & parent ()       { return proxy_->parent; }
   proxy_ptr const& parent () const { return proxy_->parent; }
 
-private:
-  struct make_deleted
-  {
-  	template <class> struct result { typedef field_type type; };
-
-  	field_type operator() (field_name const& name) const
-  	{ 
-  		return field_type ("", ""); 
-  	}
-  };
 public:
 
   //////////////////////////////////////////////////////////////////////////////
-  // Constructor.
+  // Constructors.
+
+  /// Constructs attributes map based on given map.
+  /**
+   * @param parent parent attributes_map.
+   */
+  attributes_map (proxy_ptr parent = proxy_ptr ())
+  : proxy_ (new proxy)
+  {
+    proxy_->parent = parent;
+  }
 
 #if YAMAIL_CPP >= 11
-  /// Constructs insternal map from initiaizer_list.
+  /// Constructs attributes map from initiaizer_list.
   /**
    * @param fields fileds definition list.
-   * @param parent parent typed_attributes_map.
+   * @param parent parent attributes_map.
    * @note This method is only defined in C++11 and above compile mode.
    */
-  typed_attributes_map (
+  attributes_map (
     std::initializer_list<field_type> fields, 
     proxy_ptr parent = proxy_ptr ())
   : proxy_ (new proxy)
@@ -190,12 +214,12 @@ public:
   }
 #endif // YAMAIL_CPP >= 11
   
-  /// Constructs insternal map from field_list.
+  /// Constructs attributes map from field_list.
   /**
    * @param fields fileds definition list.
-   * @param parent parent typed_attributes_map.
+   * @param parent parent attributes_map.
    */
-  typed_attributes_map (field_list const& fields, 
+  attributes_map (field_list const& fields, 
       proxy_ptr parent = proxy_ptr ())
   : proxy_ (new proxy)
   {
@@ -209,19 +233,32 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   // Replace.
 
+  /// Replaces of adds given field.
+  /**
+   * @param field the fields to replace or add.
+   * @returns reference to this attributes_map.
+   * @note This method is only defined in C++11 and above compile mode.
+   */
+  inline attributes_map&
+  replace (field_type const& field)
+  {
+  	proxy_->map[std::get<0> (field)] = std::get<1> (field);
+    return *this;
+  }
+
 #if YAMAIL_CPP >= 11
   /// Replaces of adds given fields.
   /**
    * @param fields list of fields to replace or add.
-   * @returns reference to this typed_attributes_map.
+   * @returns reference to this attributes_map.
    * @note This method is only defined in C++11 and above compile mode.
    */
-  typed_attributes_map&
+  attributes_map&
   replace (std::initializer_list<field_type> fields)
   {
   	for (auto const& field: fields)
     {
-    	proxy_->map[std::get<0> (field)] = std::get<1> (field);
+    	replace (field);
     }
 
     return *this;
@@ -231,15 +268,15 @@ public:
   /// Replaces of adds given fields.
   /**
    * @param fields list of fields to replace or add.
-   * @returns reference to this typed_attributes_map.
+   * @returns reference to this attributes_map.
    * @note This method is only defined in C++11 and above compile mode.
    */
-  typed_attributes_map&
+  attributes_map&
   replace (field_list const& fields)
   {
 		BOOST_FOREACH (field_type const& field, fields)
     {
-    	proxy_->map[std::get<0> (field)] = std::get<1> (field);
+    	replace (field);
     }
 
     return *this;
@@ -248,20 +285,30 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   // Erase.
 
+  /// Erase given field from internal map.
+  /**
+   * @param names field name to be erased.
+   * @returns reference to this attributes_map.
+   */
+  inline attributes_map&
+  erase (field_name const& name)
+  {
+    proxy_->map.erase (name);
+    return *this;
+  }
+
 #if YAMAIL_CPP >= 11
   /// Removes given fields from internal map.
   /**
    * @param names list of the names.
-   * @returns reference to this typed_attributes_map.
+   * @returns reference to this attributes_map.
    * @note This method is only defined in C++11 and above compile mode.
    */
-  typed_attributes_map&
+  attributes_map&
   erase (std::initializer_list<field_name> names)
   {
   	for (auto const& name: names)
-    {
-      proxy_->map.erase (name);
-    }
+    	erase (name);
 
     return *this;
   }
@@ -270,15 +317,14 @@ public:
   /// Removes given fields from internal map.
   /**
    * @param names list of the names.
-   * @returns reference to this typed_attributes_map.
-   * @note This method is only defined in C++11 and above compile mode.
+   * @returns reference to this attributes_map.
    */
-  typed_attributes_map&
+  attributes_map&
   erase (name_list const& names)
   {
 		BOOST_FOREACH (field_name const& name, names)
     {
-      proxy_->map.erase (name);
+      erase (name);
     }
 
     return *this;
@@ -288,55 +334,161 @@ public:
   // Scoped Change.
 
 #if YAMAIL_CPP >= 11
-  /// Creates new scoped typed_attributes_map.
+  /// Creates new scoped attributes_map.
   /** 
    * @param to_add fields list to be added into scoped map.
    * @param to_del fields names to be deleted from scoped map.
    * @returns new scoped map instance.
+   * @note This method is only defined in C++11 and above compile mode.
    */
-  typed_attributes_map
+  attributes_map
   scoped_change (std::initializer_list<field_type> to_add,
     std::initializer_list<field_name> to_del = 
-        std::initializer_list<field_name> ()) const _noexcept
+        std::initializer_list<field_name> ()) const 
   {
-  	typed_attributes_map tmp (to_add, proxy_);
+  	attributes_map tmp (to_add, proxy_);
 
   	boost::copy (
   	  to_del | boost::adaptors::transformed (
   	    [] (field_name name) { return field_type (std::move (name), deleted); }
   	  ),
-  	  std::inserter (tmp.proxy_->map, tmp.proxy_->map.end ()));
+  	  YAMAIL_FQNS_UTILITY::updater (tmp.proxy_->map)
+  	);
 
   	return tmp;
   }
 #endif // YAMAIL_CPP >= 11
 
-  /// Creates new scoped typed_attributes_map.
+  /// Creates new scoped attributes_map.
   /** 
    * @param to_add fields list to be added into scoped map.
    * @param to_del fields names to be deleted from scoped map.
    * @returns new scoped map instance.
    */
-  typed_attributes_map
+  attributes_map
   scoped_change (field_list const& to_add, 
       name_list to_del = name_list ()) const
   {
-  	typed_attributes_map tmp (to_add, proxy_);
+  	attributes_map tmp (to_add, proxy_);
 
   	boost::copy (
-  	  to_del | boost::adaptors::transformed (make_deleted ()),
-  	  std::inserter (tmp.proxy_->map, tmp.proxy_->map.end ())
+  	  to_del | boost::adaptors::transformed (detail::make_deleted ()),
+  	  YAMAIL_FQNS_UTILITY::updater (tmp.proxy_->map)
   	);
   	return tmp;
   }
 
-private:
+protected:
+  boost::optional<field_value const&>
+  cascade_find (field_name const& name) const
+  {
+  	for (proxy_ptr proxy = proxy_; proxy; proxy = proxy->parent)
+    {
+  	  map_type::const_iterator found = proxy->map.find (name);
+  	  if (found != proxy->map.end ()) return found->second;
+    }
+
+    return boost::optional<field_value const&> ();
+  }
+
+  std::set<field_name> 
+  cascade_keys ()
+  {
+  	// TODO: possible optimization is to strip deleted entries from keys.
+  	std::set<field_name> keys;
+
+    for (proxy_ptr p = proxy_; p; p = proxy->parent)
+    {
+    	boost::copy(map->map_ | boost::adaptors::map_keys,
+    	    std::inserter (keys, keys.end ()));
+    }
+
+    return keys;
+  }
+
+ private:
+  friend attributes_map scoped (attributes_map& map);
+  friend class delete_from;
+
   proxy_ptr proxy_;
 };
 
+/// Create new scope from given map.
+/**
+ * @param map attributes map.
+ * @returns new scope based on map.
+ */
+inline attributes_map
+scoped (attributes_map& map)
+{
+	return attributes_map (map.proxy_);
+}
 
+/// Add or replace field in given map.
+/**
+ * @param map attributes map.
+ * @param field field to add or replace.
+ * @returns Reference to map.
+ */
+inline attributes_map&
+operator<< (attributes_map& map, field_type const& field)
+{
+  return map.replace (field); 
+}
+
+// Scoped delete
+class delete_from
+{
+public:
+	delete_from (attributes_map& am) : map_ (am.proxy_->map) {}
+
+	delete_from const& operator() (field_name const& name) const
+	{
+		map_[name] = deleted;
+  	return *this;
+  }
+
+	delete_from const& operator() (name_list const& names) const
+	{
+		boost::copy (
+  	  names | boost::adaptors::transformed (detail::make_deleted ()),
+  	  YAMAIL_FQNS_UTILITY::updater (map_)
+  	);
+
+  	return *this;
+  }
+
+#if YAMAIL_CPP >= 11
+  delete_from const& operator() (std::initializer_list<field_name> names) const
+  {
+  	boost::copy (
+  	  names | boost::adaptors::transformed (
+  	    [] (field_name name) { return field_type (std::move (name), deleted); }
+  	  ),
+  	  YAMAIL_FQNS_UTILITY::updater (map_)
+  	);
+  	return *this;
+  }
+#endif
+
+  delete_from const& operator<< (field_name const& name) const
+  {
+    return (*this) (name);
+  }
+
+  delete_from const& operator<< (name_list const& names) const
+  {
+    return (*this) (names);
+  }
+
+private:
+  attributes_map::map_type& map_;
+};
+
+
+} // namespace typed
 #if defined(GENERATING_DOCUMENTATION)
-}}
+}} // namespace yamail::log
 #else
 YAMAIL_FQNS_LOG_END
 #endif // GENERATING_DOCUMENTATION
