@@ -1,6 +1,15 @@
 #ifndef _YAMAIL_UTILITY_APPLY_H_
 #define _YAMAIL_UTILITY_APPLY_H_
 #include <yamail/config.h>
+
+#if YAMAIL_CPP < 11
+
+# error This file requires compiler and library support for the \
+ISO C++ 2011 standard. This support is currently experimental, and must be \
+enabled with the -std=c++11 or -std=gnu++11 compiler options.
+
+#else
+
 #include <yamail/utility/namespace.h>
 
 #include <cstddef>
@@ -8,12 +17,15 @@
 #include <type_traits>
 #include <utility>
 
-YAMAIL_NS_BEGIN
-YAMAIL_NS_UTILITY_BEGIN
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
+YAMAIL_FQNS_UTILITY_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 // See http://stackoverflow.com/a/12650100/633160
 
-#if _cplusplus >= 201300L // C++1y
+#if YAMAIL_CPP >= 14
 
 template<typename F, typename Tuple, std::size_t ... I>
 auto apply_impl(F&& f, Tuple&& t, std::index_sequence<I...>) {
@@ -69,7 +81,12 @@ inline auto apply(F && f, T && t, A &&... a)
 
 #endif // C++14
 
-YAMAIL_NS_UTILITY_END
-YAMAIL_NS_END
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
+YAMAIL_FQNS_UTILITY_END
+#endif // GENERATING_DOCUMENTATION
+
+#endif // C++11
 
 #endif // _YAMAIL_UTILITY_APPLY_H_

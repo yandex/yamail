@@ -7,8 +7,19 @@
 #include <cassert>
 #include <memory>
 
-YAMAIL_NS_BEGIN
-YAMAIL_NS_UTILITY_BEGIN
+#if YAMAIL_CPP < 11
+
+# error This file requires compiler and library support for the \
+ISO C++ 2011 standard. This support is currently experimental, and must be \
+enabled with the -std=c++11 or -std=gnu++11 compiler options.
+
+#else
+
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
+YAMAIL_FQNS_UTILITY_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 /// std::rref emulation for c++11.
 /// Used to emulate move lambda capture.
@@ -51,7 +62,13 @@ template <typename T> rref_impl<T> make_rref (T&& x)
 	return rref_impl<T> { std::move (x) };
 }
 
-YAMAIL_NS_UTILITY_END
-YAMAIL_NS_END
+
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
+YAMAIL_FQNS_UTILITY_END
+#endif // GENERATING_DOCUMENTATION
+
+#endif // c++11
 
 #endif // _YAMAIL_UTILITY_RREF_H_

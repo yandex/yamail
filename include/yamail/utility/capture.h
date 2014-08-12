@@ -1,6 +1,15 @@
 #ifndef _YAMAIL_UTILITY_CAPTURE_H_
 #define _YAMAIL_UTILITY_CAPTURE_H_
 #include <yamail/config.h>
+
+#if YAMAIL_CPP < 11
+
+# error This file requires compiler and library support for the \
+ISO C++ 2011 standard. This support is currently experimental, and must be \
+enabled with the -std=c++11 or -std=gnu++11 compiler options.
+
+#else
+
 #include <yamail/utility/namespace.h>
 
 #include <yamail/utility/apply.h>
@@ -9,8 +18,11 @@
 #include <tuple>
 #include <type_traits>
 
-YAMAIL_NS_BEGIN
-YAMAIL_NS_UTILITY_BEGIN
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
+YAMAIL_FQNS_UTILITY_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 // Usage: 
 //  std::unique_ptr<int> p {...}, q {...};
@@ -64,7 +76,12 @@ capture (F&& f, T0&& t0, Ts&& ...ts)
 	    std::forward<T0> (t0), std::forward<Ts> (ts)...);
 }
 
-YAMAIL_NS_UTILITY_END
-YAMAIL_NS_END
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
+YAMAIL_FQNS_UTILITY_END
+#endif // GENERATING_DOCUMENTATION
+
+#endif // C++11
 
 #endif // _YAMAIL_UTILITY_CAPTURE_H_

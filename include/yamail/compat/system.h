@@ -39,7 +39,7 @@ using boost::system::errc::make_error_code;
 using boost::system::errc::make_error_condition;
 using boost::system::generic_category;
 using boost::system::system_category;
-namespace compat::errc = ::boost::system::errc;
+namespace errc = ::boost::system::errc;
 
 using ::boost::system::is_error_code_enum;
 using ::boost::system::is_error_condition_enum;

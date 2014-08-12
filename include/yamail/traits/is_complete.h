@@ -3,14 +3,20 @@
 #include <yamail/config.h>
 #include <yamail/traits/namespace.h>
 
-#if 0
-#include <type_traits>
+#include <yamail/compat/type_traits.h>
 
-YAMAIL_NS_BEGIN
-YAMAIL_NS_TRAITS_BEGIN
+#if YAMAIL_CPP >= 11
+# include <type_traits>
+#else // boost emulation
+# include <boost/typeof/typeof.hpp>
+# include <boost/type_traits/integral_constant.hpp>
+#endif
+
+YAMAIL_FQNS_TRAITS_BEGIN
 
 namespace detail {
 
+#if YAMAIL_CPP >= 11
 template <typename T>
 struct is_complete_helper {
   template <typename U>
@@ -19,6 +25,16 @@ struct is_complete_helper {
 
   using type = decltype (test ((T*) 0));
 };
+#else
+template <typename T>
+struct is_complete_helper {
+  template <typename U>
+  static boost::integral_constant<bool, sizeof(U)==sizeof(U)> test (U*);
+  static boost::false_type test (...);
+
+  typedef BOOST_TYPEOF (test ((T*) 0)) type;
+};
+#endif
 
 } // namespace detail
 
@@ -27,9 +43,6 @@ struct is_complete : detail::is_complete_helper<T>::type {};
 
 
 
-YAMAIL_NS_TRAITS_END
-YAMAIL_NS_END
-
-#endif
+YAMAIL_FQNS_TRAITS_END
 
 #endif // _YAMAIL_TRAITS_IS_COMPLETE_H_

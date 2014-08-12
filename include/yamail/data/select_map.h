@@ -1,10 +1,20 @@
 #ifndef _YAMAIL_DATA_SELECT_MAP_H_
 #define _YAMAIL_DATA_SELECT_MAP_H_
 #include <yamail/config.h>
+
+#if YAMAIL_CPP < 11
+
+# error This file requires compiler and library support for the \
+ISO C++ 2011 standard. This support is currently experimental, and must be \
+enabled with the -std=c++11 or -std=gnu++11 compiler options.
+
+#else
+
 #include <yamail/data/namespace.h>
 
 #include <yamail/traits/is_complete.h>
 #include <yamail/compat/unordered.h> // unordered_map
+#include <yamail/compat/static_assert.h>
 
 // MPL
 #include <boost/mpl/if.hpp>
@@ -19,8 +29,7 @@
 #include <boost/parameter.hpp>
 #include <boost/type_traits/is_same.hpp>
 
-YAMAIL_NS_BEGIN
-YAMAIL_NS_DATA_BEGIN
+YAMAIL_FQNS_DATA_BEGIN
 
 namespace keywords {
 
@@ -62,8 +71,10 @@ template <> struct is_index_type<hashed>: boost::true_type {};
 template <> struct is_index_type<ordered>: boost::true_type {};
 
 template <typename T> struct is_hash: boost::false_type {};
-template <typename T> struct is_hash<std::hash<T> >: boost::true_type {};
 template <typename T> struct is_hash<boost::hash<T> >: boost::true_type {};
+#if YAMAIL_CPP >= 11
+template <typename T> struct is_hash<std::hash<T> >: boost::true_type {};
+#endif
 
 template <typename T> struct is_alloc: boost::false_type {};
 template <typename T> struct is_alloc<std::allocator<T> >: boost::true_type {};
@@ -254,7 +265,8 @@ template <class A0, class A1,
           class A5 = boost::parameter::void_>
 using select_map = typename detail::select_map<A0,A1,A2,A3,A4,A5>::type;
 
-YAMAIL_NS_DATA_END
-YAMAIL_NS_END
+YAMAIL_FQNS_DATA_END
+
+#endif
 
 #endif // _YAMAIL_DATA_SELECT_MAP_H_
