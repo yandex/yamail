@@ -1,14 +1,26 @@
 #ifndef _YAMAIL_UTILITY_IN_H_
 #define _YAMAIL_UTILITY_IN_H_
 #include <yamail/config.h>
+
+#if YAMAIL_CPP < 11
+
+# error This file requires compiler and library support for the \
+ISO C++ 2011 standard. This support is currently experimental, and must be \
+enabled with the -std=c++11 or -std=gnu++11 compiler options.
+
+#else
+
 #include <yamail/utility/namespace.h>
 
 #include <utility>
 #include <type_traits>
 #include <cassert>
 
-YAMAIL_NS_BEGIN
-YAMAIL_NS_UTILITY_BEGIN
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
+YAMAIL_FQNS_UTILITY_BEGIN
+#endif // GENERATING_DOCUMENTATION
 
 template <typename T> struct in_common;
 template <typename T> struct is_in_common
@@ -166,7 +178,12 @@ struct rval_in : public in_common<T>
     : in_common<T> (l, std::move (s)) {}
 };
 
-YAMAIL_NS_UTILITY_END
-YAMAIL_NS_END
 
+#if defined(GENERATING_DOCUMENTATION)
+}}
+#else
+YAMAIL_FQNS_UTILITY_END
+#endif // GENERATING_DOCUMENTATION
+
+#endif // C++11
 #endif // _YAMAIL_UTILITY_IN_H_

@@ -316,25 +316,27 @@ template<typename R> class future : public future_unwrapper<R>
         }
       }
 
-      template <typename FF,
-        typename boost::enable_if<
+      template <typename FF>
+      typename boost::enable_if<
           boost::is_same< 
               typename YAMAIL_FQNS_COMPAT::result_of<FF(future&)>::type
             , void
-          >, int>::type = 0>
-      void set_prom ()
+          >
+        , void
+      >::type set_prom ()
       {
     	  func (this_future);
     	  prom.set ();
       }
 
-      template <typename FF,
-        typename boost::disable_if<
+      template <typename FF>
+      typename boost::disable_if<
           boost::is_same< 
               typename YAMAIL_FQNS_COMPAT::result_of<FF(future&)>::type
             , void
-          >, int>::type = 0>
-      void set_prom ()
+          >
+        , void
+      >::type set_prom ()
       {
     	  prom.set (func (this_future));
       }
