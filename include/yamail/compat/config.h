@@ -67,7 +67,7 @@
 
 # if !defined(HAVE_STD_ADDRESSOF)
 #  define HAVE_STD_ADDRESSOF 1
-#endif
+# endif
 
 # if !defined(HAVE_STATIC_ASSERT)
 #  define HAVE_STATIC_ASSERT 1
@@ -118,7 +118,7 @@
 
 # if !defined(HAVE_STD_ADDRESSOF)
 #  define HAVE_STD_ADDRESSOF 0
-#endif
+# endif
 
 # if !defined(HAVE_STATIC_ASSERT)
 #  define HAVE_STATIC_ASSERT 0
