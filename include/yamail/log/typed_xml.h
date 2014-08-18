@@ -10,6 +10,8 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/logic/tribool.hpp>
 
+#include <boost/foreach.hpp>
+
 #include <map>
 
 #if defined(GENERATING_DOCUMENTATION)
@@ -21,10 +23,10 @@ namespace typed {
 
 class definitions
 {
-	static std::map<std::string, field_def>& 
+	static std::map<std::string, attribute_def>& 
 	map () _noexcept
 	{
-		static std::map<std::string, field_def> m;
+		static std::map<std::string, attribute_def> m;
 		return m;
   }
 
@@ -42,11 +44,11 @@ public:
     using boost::algorithm::iequals;
     ptree pt;
 
-    std::map<std::string, field_def> m;
+    std::map<std::string, attribute_def> m;
 
     read_xml (path, pt);
 
-    for (auto const& f: pt.get_child ("log.fields"))
+    BOOST_FOREACH (ptree::value_type const& f, pt.get_child ("log.fields"))
     {
       using boost::tribool;
       tribool has_name = false;
@@ -58,11 +60,12 @@ public:
         BOOST_THROW_EXCEPTION (std::runtime_error ("bad field in XML"));
       }
 
-      field_def def = { "", TYPE_STRING, RULE_OPTIONAL, "" };
+      attribute_def def = { "", TYPE_STRING, RULE_OPTIONAL, "" };
 
       def.descr = f.second.data ();
 
-      for (auto const& a: f.second.get_child ("<xmlattr>", empty_ptree ()))
+      BOOST_FOREACH (ptree::value_type const& a, 
+            f.second.get_child ("<xmlattr>", empty_ptree ()))
       {
         if (iequals (a.first, "name"))
         {

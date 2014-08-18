@@ -44,7 +44,7 @@ struct list_of
 	  : public boost::iterator_adaptor<
 	        iter<U>
 	      , list*
-	      , U&
+	      , U
 	      , boost::forward_traversal_tag
 	    >
 	{

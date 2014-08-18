@@ -35,123 +35,142 @@ namespace typed {
 
 namespace detail {
 
-struct time_field_helper 
+class time_attr_helper 
 {
-  template <typename Clock, typename Duration>
-  field_type
-  operator() (YAMAIL_FQNS_COMPAT::chrono::time_point<Clock, Duration> time)
-  const
-  {
-    return make_field (arg_time, time);
-  }
-
+private:
   template <typename Clock, typename SysClock>
-  field_type operator() (time_t time, long nanoseconds = 0L) const
+  attr_type 
+  from_time_t (time_t time, long nanoseconds = 0L) const
   {
-    typedef Clock clock_type;
+    // typedef Clock clock_type;
 
     static const typename Clock::time_point    dst_now = Clock::now ();
     static const typename SysClock::time_point sys_now = SysClock::now ();
 
-    return make_field (arg_time,
+    return make_attr (arg_time,
         SysClock::from_time_t (time) 
             - sys_now + dst_now 
             + YAMAIL_FQNS_COMPAT::chrono::nanoseconds (nanoseconds)
     );
   }
 
-  field_type operator() (time_t time, long nanoseconds = 0L) const
+public:
+  template <typename Clock, typename Duration>
+  inline attr_type
+  operator() (YAMAIL_FQNS_COMPAT::chrono::time_point<Clock, Duration> time)
+  const
   {
-    return this->operator() <
+    return make_attr (arg_time, time);
+  }
+
+  template <typename Clock, typename SysClock>
+  inline attr_type 
+  operator() (time_t time, long nanoseconds = 0L) const
+  {
+  	return from_time_t<Clock, SysClock> (time, nanoseconds);
+  }
+
+  inline attr_type operator() (time_t time, long nanoseconds = 0L) const
+  {
+    return from_time_t<
                 YAMAIL_FQNS_COMPAT::chrono::high_resolution_clock
               , YAMAIL_FQNS_COMPAT::chrono::system_clock
      > (time, nanoseconds);
   }
 
-  field_type operator() (struct timeval const& tv) const
+  inline attr_type operator() (struct timeval const& tv) const
   {
     return (*this) (tv.tv_sec, 1000L * tv.tv_usec);
   }
 
-  field_type operator() (struct timespec const& ts) const
+  attr_type operator() (struct timespec const& ts) const
   {
     return (*this) (ts.tv_sec, ts.tv_nsec);
   }
-}; // time_field_helper
+}; // time_attr_helper
 
-struct pid_field_helper 
+struct pid_attr_helper 
 {
-	field_type operator() (::pid_t pid) const
+	attr_type operator() (::pid_t pid) const
 	{
-		return make_field (arg_pid, pid);
+		return make_attr (arg_pid, pid);
   }
 };
 
-struct ppid_field_helper
+struct ppid_attr_helper
 {
-  field_type operator() (::pid_t ppid) const
+  attr_type operator() (::pid_t ppid) const
   {
-		return make_field (arg_ppid, ppid);
+		return make_attr (arg_ppid, ppid);
   }
 };
 
-struct tid_field_helper
+struct tid_attr_helper
 {
-	field_type operator() (boost::thread::id tid) const
+	attr_type operator() (boost::thread::id tid) const
 	{
-		return make_field (arg_tid, tid);
+		return make_attr (arg_tid, tid);
   }
 };
 
-struct service_field_helper
+struct service_attr_helper
 {
-	field_type operator() (std::string const& service) const
+	attr_type operator() (std::string const& service) const
 	{
-		return make_field (arg_tid, service);
+		return make_attr (arg_tid, service);
+  }
+};
+
+struct priority_attr_helper
+{
+  attr_type operator() (priority_enum prio) const
+  {
+  	return make_attr (arg_priority, prio);
   }
 };
 
 } // namespace detail
 
 inline attributes_map&
-operator<< (attributes_map& map, detail::time_field_helper const& time)
+operator<< (attributes_map& map, detail::time_attr_helper const& time)
 {
 	return map 
 	    << time (YAMAIL_FQNS_COMPAT::chrono::high_resolution_clock::now ());
 }
 
 inline attributes_map&
-operator<< (attributes_map& map, detail::pid_field_helper const& pid)
+operator<< (attributes_map& map, detail::pid_attr_helper const& pid)
 {
   return map << pid (::getpid ());
 }
 
 inline attributes_map&
-operator<< (attributes_map& map, detail::ppid_field_helper const& ppid)
+operator<< (attributes_map& map, detail::ppid_attr_helper const& ppid)
 {
   return map << ppid (::getppid ());
 }
 
 inline attributes_map&
-operator<< (attributes_map& map, detail::tid_field_helper const& tid)
+operator<< (attributes_map& map, detail::tid_attr_helper const& tid)
 {
   return map << tid (boost::this_thread::get_id ());
 }
 
 inline attributes_map&
-operator<< (attributes_map& map, detail::service_field_helper const& srv)
+operator<< (attributes_map& map, detail::service_attr_helper const& srv)
 {
 	// TODO: get service name somehow (from proccess name?)
   return map << srv ("(unknown service)");
 }
 
 namespace {
-const detail::time_field_helper time_field = detail::time_field_helper ();
-const detail::pid_field_helper pid_field = detail::pid_field_helper ();
-const detail::ppid_field_helper ppid_field = detail::ppid_field_helper ();
-const detail::tid_field_helper tid_field = detail::tid_field_helper ();
-const detail::service_field_helper service_field = 
-    detail::service_field_helper ();
+const detail::time_attr_helper time_attr = detail::time_attr_helper ();
+const detail::pid_attr_helper pid_attr = detail::pid_attr_helper ();
+const detail::ppid_attr_helper ppid_attr = detail::ppid_attr_helper ();
+const detail::tid_attr_helper tid_attr = detail::tid_attr_helper ();
+const detail::service_attr_helper service_attr = detail::service_attr_helper ();
+const detail::priority_attr_helper priority_attr = 
+    detail::priority_attr_helper ();
 }
 
 
