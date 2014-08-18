@@ -42,11 +42,13 @@ public:
 #endif
 
   update_iterator<Container>& operator* ()
-    { return *this; }
+  { return *this; }
+
   update_iterator<Container>& operator++ ()
-    { return *this; }
+  { return *this; }
+
   update_iterator<Container> operator++ (int)
-    { return *this; }
+  { return *this; }
 }; 
 
 template <class Container>
