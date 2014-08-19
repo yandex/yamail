@@ -163,11 +163,11 @@ typedef YAMAIL_FQNS_UTILITY::list_of<attr_name> name_list;
  */
 template <typename T>
 attr_type 
-make_attr (std::string&& key, T value)
+make_attr (std::string key, T value)
 {
-	return attr_type (std::move (key), value);
+	return attr_type (std::move (key), std::move (value));
 }
-#endif
+#else
 
 /// Creates attr from string and value.
 /**
@@ -181,6 +181,7 @@ make_attr (std::string const& key, T const& value)
 {
 	return attr_type (key, value);
 }
+#endif
 
 /// Creates attr from well known key enum ID and value.
 /**
