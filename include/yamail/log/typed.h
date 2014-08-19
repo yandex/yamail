@@ -137,21 +137,37 @@ struct make_deleted
   template <class> struct result { typedef attr_type type; };
 
 #if YAMAIL_CPP >= 11
-  attr_type operator() (attr_name name) const
+  attr_type operator() (attr_name&& name) const
   { 
     return attr_type (std::move (name), deleted); 
   }
-#else
+#endif
+
   attr_type operator() (attr_name const& name) const
   { 
     return attr_type (name, deleted); 
   }
-#endif
 };
 } // namespace detail
 
 typedef YAMAIL_FQNS_UTILITY::list_of<attr_type> attr_list;
 typedef YAMAIL_FQNS_UTILITY::list_of<attr_name> name_list;
+
+#if YAMAIL_CPP >= 11
+/// Creates attr from string and value.
+/**
+ * @param key attr name.
+ * @param value attr value.
+ * @returns attr definition instance.
+ * @note This method is only defined in C++11 and above compile mode.
+ */
+template <typename T>
+attr_type 
+make_attr (std::string&& key, T value)
+{
+	return attr_type (std::move (key), value);
+}
+#endif
 
 /// Creates attr from string and value.
 /**
@@ -159,21 +175,12 @@ typedef YAMAIL_FQNS_UTILITY::list_of<attr_name> name_list;
  * @param value attr value.
  * @returns attr definition instance.
  */
-#if YAMAIL_CPP >= 11 || defined(GENERATING_DOCUMENTATION)
-template <typename T>
-attr_type 
-make_attr (std::string key, T value)
-{
-	return attr_type (key, value);
-}
-#else
 template <typename T>
 attr_type 
 make_attr (std::string const& key, T const& value)
 {
 	return attr_type (key, value);
 }
-#endif
 
 /// Creates attr from well known key enum ID and value.
 /**
@@ -188,26 +195,33 @@ make_attr (well_known_attr_enum key, T const& value)
 	return attr_type (key, value);
 }
 
+#if YAMAIL_CPP >= 11
 /// Delete helper function.
 /**
  * @param key attr name.
  * @returns 'deleter' attr definition instance.
+ * @note This method is only defined in C++11 and above compile mode.
  */
-#if YAMAIL_CPP >= 11 || defined(GENERATING_DOCUMENTATION)
 template <typename T>
 attr_type 
-delete_attr (std::string key)
+delete_attr (std::string&& key)
 {
 	return attr_type (std::move (key), deleted);
 }
-#else
+#endif
+
+/// Delete helper function.
+/**
+ * @param key attr name.
+ * @returns 'deleter' attr definition instance.
+ * @note This method is only defined in C++11 and above compile mode.
+ */
 template <typename T>
 attr_type 
 delete_attr (std::string const& key)
 {
 	return attr_type (key, deleted);
 }
-#endif
 
 /// $Delete helper function.
 /**
@@ -298,27 +312,32 @@ public:
   //////////////////////////////////////////////////////////////////////////////
   // Replace.
 
+#if YAMAIL_CPP >= 11
   /// Replaces of adds given attr.
   /**
    * @param attr the attrs to replace or add.
    * @returns reference to this attributes_map.
    * @note This method is only defined in C++11 and above compile mode.
    */
-#if YAMAIL_CPP >= 11
   inline attributes_map&
-  replace (attr_type attr)
+  replace (attr_type&& attr)
   {
   	proxy_->map[std::move (attr.first)] = std::move (attr.second);
     return *this;
   }
-#else
+#endif
+
+  /// Replaces of adds given attr.
+  /**
+   * @param attr the attrs to replace or add.
+   * @returns reference to this attributes_map.
+   */
   inline attributes_map&
   replace (attr_type const& attr)
   {
   	proxy_->map[attr.first] = attr.second;
     return *this;
   }
-#endif
 
 #if YAMAIL_CPP >= 11
   /// Replaces of adds given attrs.
