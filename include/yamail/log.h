@@ -10,5 +10,6 @@
 #include <yamail/log/typed.h>
 #include <yamail/log/typed_predefined.h>
 #include <yamail/log/typed_xml.h>
+#include <yamail/log/typed_backend.h>
 
 #endif // _YAMAIL_LOG_H_

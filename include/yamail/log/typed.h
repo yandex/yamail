@@ -10,6 +10,8 @@
 
 #include <boost/type_erasure/builtin.hpp>
 #include <boost/type_erasure/operators.hpp>
+#include <boost/type_erasure/any_cast.hpp>
+
 #include <boost/mpl/vector.hpp>
 #include <boost/variant.hpp>
 
@@ -101,6 +103,13 @@ well_known_attr (well_known_attr_enum f) _noexcept
 	return attributes[ static_cast<int> (f) ];
 }
 
+template <typename CharT, typename Traits>
+std::basic_ostream<CharT, Traits>&
+operator<< (std::basic_ostream<CharT, Traits>& os, well_known_attr_enum f)
+{
+	return os << well_known_attr (f);
+}
+
 typedef boost::type_erasure::any<
   boost::mpl::vector<
       boost::type_erasure::copy_constructible<>
@@ -121,6 +130,11 @@ operator<< (std::basic_ostream<CharT, Traits>& os, attr_type const& ft)
 }
 
 struct deleted_t {};
+
+inline bool is_deleted (attr_value const& val)
+{
+	return 0 != boost::type_erasure::any_cast<deleted_t const*> (&val);
+}
 
 template <typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
@@ -217,8 +231,7 @@ delete_attr (std::string&& key)
  * @returns 'deleter' attr definition instance.
  * @note This method is only defined in C++11 and above compile mode.
  */
-template <typename T>
-attr_type 
+inline attr_type 
 delete_attr (std::string const& key)
 {
 	return attr_type (key, deleted);
@@ -229,8 +242,7 @@ delete_attr (std::string const& key)
  * @param key attr enum ID.
  * @returns 'deleter' attr definition instance.
  */
-template <typename T>
-attr_type 
+inline attr_type 
 delete_attr (well_known_attr_enum key)
 {
 	return attr_type (key, deleted);
@@ -473,6 +485,12 @@ public:
   }
 
 protected:
+  friend boost::optional<attr_value const&>
+  cascade_find (attributes_map const& map, attr_name const& name);
+
+  friend std::set<attr_name>
+  cascade_keys (attributes_map const& map);
+
   boost::optional<attr_value const&>
   cascade_find (attr_name const& name) const
   {
@@ -486,7 +504,7 @@ protected:
   }
 
   std::set<attr_name> 
-  cascade_keys ()
+  cascade_keys () const
   {
   	// TODO: possible optimization is to strip deleted entries from keys.
   	std::set<attr_name> keys;
@@ -527,6 +545,18 @@ inline attributes_map&
 operator<< (attributes_map& map, attr_type const& attr)
 {
   return map.replace (attr); 
+}
+
+inline boost::optional<attr_value const&>
+cascade_find (attributes_map const& map, attr_name const& name)
+{
+	return map.cascade_find (name);
+}
+
+inline std::set<attr_name> 
+cascade_keys (attributes_map const& map)
+{
+	return map.cascade_keys ();
 }
 
 } // namespace typed

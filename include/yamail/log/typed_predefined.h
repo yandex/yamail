@@ -131,33 +131,116 @@ struct priority_attr_helper
 
 } // namespace detail
 
-inline attributes_map&
-operator<< (attributes_map& map, detail::time_attr_helper const& time)
+template <typename X> struct predefined_traits
+{
+  static const bool value = false;
+};
+
+template <> struct predefined_traits<attributes_map>
+{
+	static const bool value = true;
+	typedef attributes_map& result_type;
+};
+
+template <typename T>
+inline typename boost::enable_if_c<
+    predefined_traits<T>::value
+  , typename predefined_traits<T>::result_type
+>::type
+operator<< (T& map, detail::time_attr_helper const& time)
 {
 	return map 
 	    << time (YAMAIL_FQNS_COMPAT::chrono::high_resolution_clock::now ());
 }
 
-inline attributes_map&
-operator<< (attributes_map& map, detail::pid_attr_helper const& pid)
+template <typename T>
+inline typename boost::enable_if_c<
+    predefined_traits<T>::value
+  , typename predefined_traits<T>::result_type
+>::type
+operator<< (T const& map, detail::time_attr_helper const& time)
+{
+	return map 
+	    << time (YAMAIL_FQNS_COMPAT::chrono::high_resolution_clock::now ());
+}
+
+template <typename T>
+inline typename boost::enable_if_c<
+    predefined_traits<T>::value
+  , typename predefined_traits<T>::result_type
+>::type
+operator<< (T& map, detail::pid_attr_helper const& pid)
 {
   return map << pid (::getpid ());
 }
 
-inline attributes_map&
-operator<< (attributes_map& map, detail::ppid_attr_helper const& ppid)
+template <typename T>
+inline typename boost::enable_if_c<
+    predefined_traits<T>::value
+  , typename predefined_traits<T>::result_type
+>::type
+operator<< (T const& map, detail::pid_attr_helper const& pid)
+{
+  return map << pid (::getpid ());
+}
+
+template <typename T>
+inline typename boost::enable_if_c<
+    predefined_traits<T>::value
+  , typename predefined_traits<T>::result_type
+>::type
+operator<< (T& map, detail::ppid_attr_helper const& ppid)
 {
   return map << ppid (::getppid ());
 }
 
-inline attributes_map&
-operator<< (attributes_map& map, detail::tid_attr_helper const& tid)
+template <typename T>
+inline typename boost::enable_if_c<
+    predefined_traits<T>::value
+  , typename predefined_traits<T>::result_type
+>::type
+operator<< (T const& map, detail::ppid_attr_helper const& ppid)
+{
+  return map << ppid (::getppid ());
+}
+
+template <typename T>
+inline typename boost::enable_if_c<
+    predefined_traits<T>::value
+  , typename predefined_traits<T>::result_type
+>::type
+operator<< (T& map, detail::tid_attr_helper const& tid)
 {
   return map << tid (boost::this_thread::get_id ());
 }
 
-inline attributes_map&
-operator<< (attributes_map& map, detail::service_attr_helper const& srv)
+template <typename T>
+inline typename boost::enable_if_c<
+    predefined_traits<T>::value
+  , typename predefined_traits<T>::result_type
+>::type
+operator<< (T const& map, detail::tid_attr_helper const& tid)
+{
+  return map << tid (boost::this_thread::get_id ());
+}
+
+template <typename T>
+inline typename boost::enable_if_c<
+    predefined_traits<T>::value
+  , typename predefined_traits<T>::result_type
+>::type
+operator<< (T& map, detail::service_attr_helper const& srv)
+{
+	// TODO: get service name somehow (from proccess name?)
+  return map << srv ("(unknown service)");
+}
+
+template <typename T>
+inline typename boost::enable_if_c<
+    predefined_traits<T>::value
+  , typename predefined_traits<T>::result_type
+>::type
+operator<< (T const& map, detail::service_attr_helper const& srv)
 {
 	// TODO: get service name somehow (from proccess name?)
   return map << srv ("(unknown service)");
