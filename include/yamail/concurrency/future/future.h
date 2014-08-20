@@ -101,7 +101,9 @@ template<typename R> class promise : public untyped_promise
 {
   public:
     promise() : impl_(new detail::promise_impl<R>) 
-    {f_ = impl_->f_;}; // creates an empty future
+    {
+    	f_ = impl_->f_;
+    } // creates an empty future
     
     promise(const promise& t) : untyped_promise(t.impl_->f_), impl_(t.impl_) {}
     

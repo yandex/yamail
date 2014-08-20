@@ -10,6 +10,9 @@
 
 #include <vector>
 #include <list>
+#include <cassert>
+
+#include <stdlib.h> // abort ()
 
 // DEBUG
 // #include <iostream>
@@ -207,7 +210,7 @@ add_callback(const YAMAIL_FQNS_COMPAT::function<void (void)> f) {
   }
   callbacks_.push_front(f);
   callback_reference cb_ref;
-        cb_ref.iter_ = callbacks_.begin();
+  cb_ref.iter_ = callbacks_.begin();
   cb_ref.empty_ = false;
         return cb_ref;
 }
@@ -267,10 +270,16 @@ void notify(YAMAIL_FQNS_COMPAT::unique_lock<YAMAIL_FQNS_COMPAT::mutex> &lck) {
   lck.unlock();
   func_list_t::iterator it;
   for (it = cb.begin(); it != cb.end(); ++it)
-    (*it)();
-        // delete all callbacks - they will never be needed again
-        // that is also why this clear is thread-safe outside the mutex
-        callbacks_.clear();
+    try { (*it)(); } 
+    catch (...) 
+    {
+    	assert (false && "future callback must not throw exceptions, fix your code");
+    	// in case assert is turned off with NDEBUG...
+    	abort ();
+    }
+  // delete all callbacks - they will never be needed again
+  // that is also why this clear is thread-safe outside the mutex
+  callbacks_.clear();
   cancel_handler_ = YAMAIL_FQNS_COMPAT::function<void (void)>();
   // the below is in case someone tried to remove while we are calling
   YAMAIL_FQNS_COMPAT::unique_lock<YAMAIL_FQNS_COMPAT::mutex> lck2(mutex_);
