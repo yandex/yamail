@@ -82,7 +82,7 @@ enum priority_enum {
 /// Predefined attribute types.
 enum well_known_attr_enum {
 	arg_time,           ///< Represents time of the log record.
-	arg_service,        ///< Represents name of the service (name of the daemon).
+	arg_process,        ///< Represents name of the service (name of the daemon).
 	arg_pid,            ///< Represents ID of the logging process.
 	arg_ppid,           ///< Represents Parent Process ID of logging process.
 	arg_tid,            ///< Represents ID of logging thread.
@@ -96,7 +96,7 @@ inline char const*
 well_known_attr (well_known_attr_enum f) _noexcept
 {
 	static _constexpr char const* attributes[] = {
-		"TIME", "SERVICE", "PID", "PPID", "TID", "PRIORITY"
+		"TIME", "PROCESS", "PID", "PPID", "TID", "PRIORITY"
 	};
 
   

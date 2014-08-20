@@ -3,6 +3,7 @@
 #include <yamail/config.h>
 #include <yamail/log/namespace.h>
 #include <yamail/log/typed.h>
+#include <yamail/log/detail/process_name.h>
 
 #include <yamail/compat/chrono.h>
 
@@ -91,6 +92,11 @@ public:
 
 struct pid_attr_helper 
 {
+	attr_type operator() () const
+	{
+		return make_attr (arg_pid, ::getpid);
+  }
+
 	attr_type operator() (::pid_t pid) const
 	{
 		return make_attr (arg_pid, pid);
@@ -99,6 +105,11 @@ struct pid_attr_helper
 
 struct ppid_attr_helper
 {
+  attr_type operator() () const
+  {
+		return make_attr (arg_ppid, ::getppid);
+  }
+
   attr_type operator() (::pid_t ppid) const
   {
 		return make_attr (arg_ppid, ppid);
@@ -113,11 +124,17 @@ struct tid_attr_helper
   }
 };
 
-struct service_attr_helper
+struct process_name_attr_helper
 {
-	attr_type operator() (std::string const& service) const
+	// TODO: cache process name
+	attr_type operator() () const
 	{
-		return make_attr (arg_tid, service);
+		return make_attr (arg_process, YAMAIL_FQNS_LOG::detail::get_process_name ());
+  }
+
+	attr_type operator() (std::string const& process_name) const
+	{
+		return make_attr (arg_process, process_name);
   }
 };
 
@@ -139,13 +156,12 @@ template <typename X> struct predefined_traits
 template <> struct predefined_traits<attributes_map>
 {
 	static const bool value = true;
-	typedef attributes_map& result_type;
 };
 
 template <typename T>
 inline typename boost::enable_if_c<
     predefined_traits<T>::value
-  , typename predefined_traits<T>::result_type
+  , T&
 >::type
 operator<< (T& map, detail::time_attr_helper const& time)
 {
@@ -156,7 +172,7 @@ operator<< (T& map, detail::time_attr_helper const& time)
 template <typename T>
 inline typename boost::enable_if_c<
     predefined_traits<T>::value
-  , typename predefined_traits<T>::result_type
+  , T const&
 >::type
 operator<< (T const& map, detail::time_attr_helper const& time)
 {
@@ -167,47 +183,47 @@ operator<< (T const& map, detail::time_attr_helper const& time)
 template <typename T>
 inline typename boost::enable_if_c<
     predefined_traits<T>::value
-  , typename predefined_traits<T>::result_type
+  , T&
 >::type
 operator<< (T& map, detail::pid_attr_helper const& pid)
 {
-  return map << pid (::getpid ());
+  return map << pid ();
 }
 
 template <typename T>
 inline typename boost::enable_if_c<
     predefined_traits<T>::value
-  , typename predefined_traits<T>::result_type
+  , T const&
 >::type
 operator<< (T const& map, detail::pid_attr_helper const& pid)
 {
-  return map << pid (::getpid ());
+  return map << pid ();
 }
 
 template <typename T>
 inline typename boost::enable_if_c<
     predefined_traits<T>::value
-  , typename predefined_traits<T>::result_type
+  , T&
 >::type
 operator<< (T& map, detail::ppid_attr_helper const& ppid)
 {
-  return map << ppid (::getppid ());
+  return map << ppid ();
 }
 
 template <typename T>
 inline typename boost::enable_if_c<
     predefined_traits<T>::value
-  , typename predefined_traits<T>::result_type
+  , T const&
 >::type
 operator<< (T const& map, detail::ppid_attr_helper const& ppid)
 {
-  return map << ppid (::getppid ());
+  return map << ppid ();
 }
 
 template <typename T>
 inline typename boost::enable_if_c<
     predefined_traits<T>::value
-  , typename predefined_traits<T>::result_type
+  , T&
 >::type
 operator<< (T& map, detail::tid_attr_helper const& tid)
 {
@@ -217,7 +233,7 @@ operator<< (T& map, detail::tid_attr_helper const& tid)
 template <typename T>
 inline typename boost::enable_if_c<
     predefined_traits<T>::value
-  , typename predefined_traits<T>::result_type
+  , T const&
 >::type
 operator<< (T const& map, detail::tid_attr_helper const& tid)
 {
@@ -227,23 +243,23 @@ operator<< (T const& map, detail::tid_attr_helper const& tid)
 template <typename T>
 inline typename boost::enable_if_c<
     predefined_traits<T>::value
-  , typename predefined_traits<T>::result_type
+  , T&
 >::type
-operator<< (T& map, detail::service_attr_helper const& srv)
+operator<< (T& map, detail::process_name_attr_helper const& srv)
 {
-	// TODO: get service name somehow (from proccess name?)
-  return map << srv ("(unknown service)");
+	// TODO: get process_name name somehow (from proccess name?)
+  return map << srv ();
 }
 
 template <typename T>
 inline typename boost::enable_if_c<
     predefined_traits<T>::value
-  , typename predefined_traits<T>::result_type
+  , T const&
 >::type
-operator<< (T const& map, detail::service_attr_helper const& srv)
+operator<< (T const& map, detail::process_name_attr_helper const& srv)
 {
 	// TODO: get service name somehow (from proccess name?)
-  return map << srv ("(unknown service)");
+  return map << srv ();
 }
 
 namespace {
@@ -251,7 +267,8 @@ const detail::time_attr_helper time_attr = detail::time_attr_helper ();
 const detail::pid_attr_helper pid_attr = detail::pid_attr_helper ();
 const detail::ppid_attr_helper ppid_attr = detail::ppid_attr_helper ();
 const detail::tid_attr_helper tid_attr = detail::tid_attr_helper ();
-const detail::service_attr_helper service_attr = detail::service_attr_helper ();
+const detail::process_name_attr_helper process_name_attr =
+    detail::process_name_attr_helper ();
 const detail::priority_attr_helper priority_attr = 
     detail::priority_attr_helper ();
 }

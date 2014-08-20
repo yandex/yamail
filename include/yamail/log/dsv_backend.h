@@ -13,6 +13,8 @@
 #include <boost/log/attributes/value_visitation.hpp>
 #include <boost/log/utility/manipulators/add_value.hpp>
 
+#include <boost/foreach.hpp>
+
 #if defined(GENERATING_DOCUMENTATION)
 namespace yamail { namespace log {
 #else
@@ -89,12 +91,15 @@ public:
 
   void consume (logging::record_view const& rec)
   {
-    for (auto const& x: rec.attribute_values())
+    BOOST_FOREACH (logging::attribute_value_set::value_type const& x,
+        rec.attribute_values())
     {
     	file_ << x.first << "=";
     	print_value (file_, x.second);
     	file_ << delim_char_;
     }
+
+    file_ << "\n";
   }
 
   void flush ()

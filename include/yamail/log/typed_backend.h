@@ -57,9 +57,8 @@ public:
 	  , amap_ptr_ (new attributes_map)
 	  , amap_ (*amap_ptr_)
 	{
-	  std::unique_ptr<attributes_map> tmp (amap_ptr_);
-	  amap_ << attr;
-	  tmp.release ();
+		try { amap_ << attr; }
+		catch (...) { delete amap_ptr_; throw; }
 	}
 
 	~secondary_stream ()
@@ -90,7 +89,6 @@ private:
 template<typename Logger> struct predefined_traits<secondary_stream<Logger> >
 {
 	static const bool value = true;
-	typedef secondary_stream<Logger> const& result_type;
 };
 
 template <typename Logger> inline secondary_stream<Logger> 
