@@ -70,7 +70,6 @@ class future_and_func_impl : ::boost::noncopyable {
           b_.get(); //throw if you have any
         }
       } catch (...) {
-        // p_.set_exception(YAMAIL_FQNS_COMPAT::current_exception());
         if (ex_ == YAMAIL_FQNS_COMPAT::exception_ptr ())
           ex_ = YAMAIL_FQNS_COMPAT::current_exception ();
       }
