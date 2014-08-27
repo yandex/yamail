@@ -54,7 +54,7 @@ class untyped_promise {
       f_->set_exception(YAMAIL_FQNS_COMPAT::make_exception_ptr (e));
     }
 
-#if defined(HAVE_STD_MOVE) && HAVE_STD_MOVE // __cplusplus >= 201103L
+#if YAMAIL_USE_RVALUES
   template<typename E> 
   typename boost::disable_if<
       boost::is_same< 
@@ -80,7 +80,7 @@ class untyped_promise {
       f_->set_exception(e);
     }
 
-#if defined(HAVE_STD_MOVE) && HAVE_STD_MOVE // __cplusplus >= 201103L
+#if YAMAIL_USE_RVALUES
     void set_exception(YAMAIL_FQNS_COMPAT::exception_ptr&& e) {
       f_->set_exception(std::move (e));
     }
@@ -123,7 +123,7 @@ template<typename R> class promise : public untyped_promise
     void set( R const& r ) { // sets the value r and transitions to ready()
       impl_->f_->set_value(r, *impl_->value_);
     }
-#if defined(HAVE_STD_MOVE) && HAVE_STD_MOVE // __cplusplus >= 201103L
+#if YAMAIL_USE_RVALUES
     void set (R&& r) {
     	impl_->f_->set_value (std::forward<R> (r), *impl_->value_);
     }
