@@ -59,33 +59,27 @@ class future_and_func_impl : ::boost::noncopyable {
     // future_and_func_impl(const future_and_func_impl &f) : a_(f.a_), b_(f.b_), p_(f.p_), got_a_(false), got_b_(false) {}
     struct future_and_failed : public std::exception { };
     void operator()() {
-      YAMAIL_FQNS_COMPAT::lock_guard<YAMAIL_FQNS_COMPAT::mutex> lck(mutex_);
-      try {
-        if ((!got_a_) && a_.ready()) {
-          got_a_ = true;
-          a_.get(); //throw if you have any
-        } 
-        if ((!got_b_) && b_.ready()) {
-          got_b_ = true;
-          b_.get(); //throw if you have any
-        }
-      } catch (...) {
-        // p_.set_exception(YAMAIL_FQNS_COMPAT::current_exception());
-        if (ex_ == YAMAIL_FQNS_COMPAT::exception_ptr ())
-          ex_ = YAMAIL_FQNS_COMPAT::current_exception ();
-      }
-      if (got_a_ && got_b_) {
-      	if (ex_ != YAMAIL_FQNS_COMPAT::exception_ptr ())
-      		p_.set_exception (ex_);
-        else
-          p_.set(); //completed
+YAMAIL_FQNS_COMPAT::lock_guard<YAMAIL_FQNS_COMPAT::mutex> lck(mutex_);
+try {
+  if ((!got_a_) && a_.ready()) {
+    a_.get(); //throw if you have any
+    got_a_ = true;
+  } 
+  if ((!got_b_) && b_.ready()) {
+    b_.get(); //throw if you have any
+    got_b_ = true;
+  }
+} catch (...) {
+  p_.set_exception(YAMAIL_FQNS_COMPAT::current_exception());
+}
+if (got_a_ && got_b_) {
+  p_.set(); //completed
       }
     }
     future<void> a_,b_;
     promise<void> p_;
     bool got_a_, got_b_;
     YAMAIL_FQNS_COMPAT::mutex mutex_;
-    YAMAIL_FQNS_COMPAT::exception_ptr ex_;
 };
 
 class future_and_func {
