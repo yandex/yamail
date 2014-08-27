@@ -54,8 +54,15 @@ class untyped_promise {
       f_->set_exception(YAMAIL_FQNS_COMPAT::make_exception_ptr (e));
     }
 
-#if __cplusplus >= 201103L
-    template<typename E> void set_exception( E&& e ) {
+#if defined(HAVE_STD_MOVE) && HAVE_STD_MOVE // __cplusplus >= 201103L
+  template<typename E> 
+  typename boost::disable_if<
+      boost::is_same< 
+          typename YAMAIL_FQNS_COMPAT::type_traits::decay<E>::type
+        , YAMAIL_FQNS_COMPAT::exception_ptr
+      >
+    , void
+  >::type set_exception( E&& e ) {
       this->set_exception_core(std::forward<E> (e), 
           ::boost::is_base_of<YAMAIL_FQNS::error, E>());
     }
@@ -73,7 +80,7 @@ class untyped_promise {
       f_->set_exception(e);
     }
 
-#if __cplusplus >= 201103L
+#if defined(HAVE_STD_MOVE) && HAVE_STD_MOVE // __cplusplus >= 201103L
     void set_exception(YAMAIL_FQNS_COMPAT::exception_ptr&& e) {
       f_->set_exception(std::move (e));
     }
@@ -116,7 +123,7 @@ template<typename R> class promise : public untyped_promise
     void set( R const& r ) { // sets the value r and transitions to ready()
       impl_->f_->set_value(r, *impl_->value_);
     }
-#if __cplusplus >= 201103L
+#if defined(HAVE_STD_MOVE) && HAVE_STD_MOVE // __cplusplus >= 201103L
     void set (R&& r) {
     	impl_->f_->set_value (std::forward<R> (r), *impl_->value_);
     }
