@@ -33,7 +33,7 @@ public:
     return *this;
   }
 
-#if YAMAIL_CPP >= 11
+#if YAMAIL_USE_RVALUES
   copy_test (copy_test&& x) : id_ (id ()) { print ("CTOR_MOVE", x); }
   copy_test& operator= (copy_test&& x)
   {
