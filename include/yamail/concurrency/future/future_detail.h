@@ -8,6 +8,9 @@
 #include <yamail/compat/mutex.h>
 #include <yamail/compat/exception.h>
 
+#include <boost/exception_ptr.hpp>
+#include <boost/exception/exception.hpp>
+
 #include <vector>
 #include <list>
 #include <cassert>
@@ -140,7 +143,7 @@ template <typename R>
     while (!has_value_ && !has_exception_)
       cond_.wait(lck);
     if (has_exception_)
-      YAMAIL_FQNS_COMPAT::rethrow_exception(exception_);
+      boost::rethrow_exception(exception_);
     return value.get();
   }
 
@@ -154,7 +157,7 @@ template <typename R>
     return true;
   }
 
-void set_exception( const YAMAIL_FQNS_COMPAT::exception_ptr &e) {
+void set_exception( const boost::exception_ptr &e) {
   YAMAIL_FQNS_COMPAT::unique_lock<YAMAIL_FQNS_COMPAT::mutex> lck(mutex_);
   if (has_value_ || has_exception_) return;
   exception_ = e;
@@ -173,7 +176,7 @@ template <typename R>
     return true;
   }
 
-void set_exception(YAMAIL_FQNS_COMPAT::exception_ptr&& e) {
+void set_exception(boost::exception_ptr&& e) {
   YAMAIL_FQNS_COMPAT::unique_lock<YAMAIL_FQNS_COMPAT::mutex> lck(mutex_);
   if (has_value_ || has_exception_) return;
   exception_ = std::move (e);
@@ -185,7 +188,7 @@ void set_exception(YAMAIL_FQNS_COMPAT::exception_ptr&& e) {
 void cancel() {
   YAMAIL_FQNS_COMPAT::unique_lock<YAMAIL_FQNS_COMPAT::mutex> lck(mutex_);
   if (has_value_ || has_exception_) return; // ignore 
-  exception_ = YAMAIL_FQNS_COMPAT::make_exception_ptr(future_cancel());
+  exception_ = boost::copy_exception (future_cancel()); // make_exception_ptr
   has_exception_ = true;
   is_canceled_ = true;
   YAMAIL_FQNS_COMPAT::function<void (void)> canhan = cancel_handler_;
@@ -195,7 +198,7 @@ void cancel() {
 void end_promise() {
   YAMAIL_FQNS_COMPAT::unique_lock<YAMAIL_FQNS_COMPAT::mutex> lck(mutex_);
   if (has_value_ || has_exception_) return; // ignore 
-  exception_ = YAMAIL_FQNS_COMPAT::make_exception_ptr(broken_promise());
+  exception_ = boost::copy_exception (broken_promise()); // make_exception_ptr
   has_exception_ = true;
   notify(lck);
 }
@@ -296,7 +299,7 @@ bool set() { // a very simple set, used for as_needed_ future
 bool has_value_;
 bool has_exception_;
 bool is_canceled_;
-YAMAIL_FQNS_COMPAT::exception_ptr exception_;
+boost::exception_ptr exception_;
 mutable YAMAIL_FQNS_COMPAT::mutex mutex_;
 mutable YAMAIL_FQNS_COMPAT::condition_variable_any cond_;
 func_list_t callbacks_;

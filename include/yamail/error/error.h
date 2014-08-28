@@ -4,13 +4,12 @@
 #include <yamail/namespace.h>
 #include <yamail/compat/system.h>
 
-
 #include <boost/exception_ptr.hpp>
 #include <boost/exception/all.hpp>
 #include <boost/exception/info.hpp>
 #include <boost/exception/info_tuple.hpp>
-#include <boost/system/system_error.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <exception>
 #include <string>
@@ -117,23 +116,157 @@ public:
    *          from which it is obtained is destroyed or until a non-const member
    *          function of the exception object is called.
    */
-  virtual const char* what() const throw();
+  virtual const char* what() const throw()
+  {
+  	try { throw_this (); }
+  	catch (boost::exception const& e)
+  	{
+  		if (std::string const* msg = 
+  			  boost::get_error_info <error_public_info> (e))
+  			return msg->c_str ();
+    }
+    catch (...) {}
+    return "";
+  }
 
-  std::string error_class () const throw ();
-  std::string error_public () const throw ();
-  std::string error_private () const throw ();
+  std::string error_class () const throw ()
+  {
+  	try { throw_this (); }
+  	catch (boost::exception const& e)
+  	{
+  		try {
+  			if (std::string const* msg = 
+  				  boost::get_error_info <error_class_info> (e))
+  				return *msg;
+      }
+      catch (...) {}
+    }
+    catch (...) {}
+    return std::string ();
+  }
 
-  virtual std::string public_message () const;
-  virtual std::string private_message () const;
+  std::string error_public () const throw ()
+  {
+  	try { throw_this (); }
+  	catch (boost::exception const& e)
+  	{
+  		try {
+  			if (std::string const* msg = 
+  				  boost::get_error_info <error_public_info> (e))
+  				return *msg;
+      }
+      catch (...) {}
+    }
+    catch (...) {}
+    return std::string ();
+  }
 
-  virtual ::boost::exception_ptr exception_ptr() const;
+  std::string error_private () const throw ()
+  {
+  	try { throw_this (); }
+  	catch (boost::exception const& e)
+  	{
+  		try {
+  			if (std::string const* msg = 
+  				  boost::get_error_info <error_private_info> (e))
+  				return *msg;
+      }
+      catch (...) {}
+    }
+    catch (...) {}
+    return std::string ();
+  }
+
+  virtual std::string public_message () const
+  {
+  	return public_message_i (); //  + message_suffix ();
+  }
+
+
+  virtual std::string private_message () const
+  {
+  	return private_message_i () + message_suffix ();
+  }
+
+  virtual ::boost::exception_ptr exception_ptr() const
+  { 
+  	return boost::copy_exception (*this);
+  }
 
 protected:
-  std::string message_suffix () const;
+  std::string message_suffix () const
+  {
+  	std::string msg;
 
-  std::string public_message_i () const;
-  std::string private_message_i () const;
+  	try { throw_this (); }
+  	catch (boost::exception const& e)
+  	{
+  		// system error
+  		if (YAMAIL_FQNS_COMPAT::error_code const* se =
+  			  boost::get_error_info <system_error> (e))
+      {
+      	msg += ": ";
+#if 0 // do not want include asio headers here...
+      	if (*se == ::boost::asio::error::operation_aborted)
+      		msg += "Timeout";
+      	else
+#endif
+      		msg += se->message ();
+      }
+
+      char const* const* file = 
+          boost::get_error_info < ::boost::throw_file> (e);
+      int const* line = boost::get_error_info < ::boost::throw_line> (e);
+      // char const* const* func = 
+      //    boost::get_error_info < ::boost::throw_function> (e);
+
+      if (file && *file)
+      {
+      	msg += ", at ";
+      	msg += *file;
+
+      	if (line) 
+        {
+        	msg += '@';
+        	msg += ::boost::lexical_cast<std::string> (*line);
+        }
+
+        // XXX function names are too long to be returned or maybe not?
+      }
+    }
+    catch (...) {}
+
+    return msg;
+  }
+
+  std::string public_message_i () const
+  {
+  	return error_public ();
+  }
+
+  std::string private_message_i () const
+  {
+  	std::string msg (public_message_i ());
+  	std::string prv (error_private ());
+
+  	if (! prv.empty ())
+    {
+    	msg += ": ";
+    	msg += prv;
+    }
+
+    return msg;
+  }
+
+private:
+  void throw_this () const
+  {
+  	// surprise!
+  	throw *this;
+  }
 };
+
+
 
 #define YAMAIL_ERROR_DEF(name,base,cl,xpub) public base {                     \
     explicit inline name () : base (cl,xpub) {}                               \
