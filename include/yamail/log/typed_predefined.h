@@ -146,6 +146,26 @@ struct priority_attr_helper
   }
 };
 
+template <typename T> struct is_predefined { static const bool value = false; };
+
+template<> struct is_predefined<time_attr_helper> 
+{ static const bool value = true; };
+
+template<> struct is_predefined<pid_attr_helper> 
+{ static const bool value = true; };
+
+template<> struct is_predefined<ppid_attr_helper> 
+{ static const bool value = true; };
+
+template<> struct is_predefined<tid_attr_helper> 
+{ static const bool value = true; };
+
+template<> struct is_predefined<process_name_attr_helper> 
+{ static const bool value = true; };
+
+template<> struct is_predefined<priority_attr_helper> 
+{ static const bool value = true; };
+
 } // namespace detail
 
 template <typename X> struct predefined_traits
