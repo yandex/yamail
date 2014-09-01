@@ -5,6 +5,8 @@
 #include <yamail/log/typed.h>
 #include <yamail/log/typed_predefined.h>
 
+#include <yamail/compat/shared_ptr.h>
+
 #include <boost/phoenix.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/expressions.hpp>
@@ -15,7 +17,6 @@
 #include <boost/log/attributes/value_visitation.hpp>
 #include <boost/log/attributes/scoped_attribute.hpp>
 #include <boost/log/utility/manipulators/add_value.hpp>
-
 
 #if defined(GENERATING_DOCUMENTATION)
 namespace yamail { namespace log {
@@ -33,10 +34,31 @@ namespace attributes = boost::log::attributes;
 
 
 #define TYPED_LOG(logger) YAMAIL_FQNS_LOG::typed::make_primary_stream (logger)
+
 #define TYPED_TABLE_LOG(logger, table) \
   YAMAIL_FQNS_LOG::typed::make_primary_stream (logger, table)
 
 template <typename Logger> class secondary_stream;
+
+namespace detail {
+
+#if YAMAIL_USE_RVALUES
+template <typename T>
+YAMAIL_FQNS_COMPAT::shared_ptr<T>
+make_shared_ptr (T&& t)
+{
+	return YAMAIL_FQNS_COMPAT::make_shared<T> (std::forward<T> (t));
+}
+#else
+template <typename T>
+YAMAIL_FQNS_COMPAT::shared_ptr<T>
+make_shared_ptr (T const& t)
+{
+	return YAMAIL_FQNS_COMPAT::make_shared<T> (t);
+}
+#endif
+
+} // namespace detail
 
 template <typename Logger>
 class primary_stream
@@ -44,20 +66,23 @@ class primary_stream
 public:
 	primary_stream (Logger& logger) : logger_ (logger) {}
 
-#if 0
 	primary_stream (Logger& logger, std::string const& table) 
 	: logger_ (logger) 
-	, sentry_ (new logging::scoped_attribute (logging::add_scoped_logger_attribute (logger_, "tskv_format",
-	              attributes::make_constant(table))))
+	, sentry_ (
+	    detail::make_shared_ptr (
+	      logging::add_scoped_logger_attribute (
+	        logger_, "tskv_format", attributes::make_constant(table)
+	      )
+	    )
+	  )
 	{
 	}
-#endif
 
   Logger& logger () const { return logger_; }
 
 private:
   Logger& logger_;
-  // boost::scoped_ptr<logging::scoped_attribute> sentry_;
+  YAMAIL_FQNS_COMPAT::shared_ptr<logging::aux::attribute_scope_guard> sentry_;
 
   template <typename L> 
   friend secondary_stream<L>
