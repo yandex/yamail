@@ -74,8 +74,7 @@ class untyped_promise {
       , void
     >::type set_exception_core(E const & e)
     { // stores the exception e and transitions to ready()
-      f_->set_exception(e.exception_ptr());
-//      f_->set_exception(YAMAIL_FQNS_COMPAT::make_exception_ptr (e));
+      f_->set_exception(YAMAIL_FQNS_COMPAT::make_exception_ptr (e));
     }
 
 #if YAMAIL_USE_RVALUES
