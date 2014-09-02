@@ -72,11 +72,11 @@ class future_and_func_impl : ::boost::noncopyable {
           b_.get(); //throw if you have any
         }
       } catch (...) {
-        if (ex_ == boost::exception_ptr ())
+        if (ex_ == YAMAIL_FQNS_COMPAT::exception_ptr ())
           ex_ = YAMAIL_FQNS_COMPAT::current_exception ();
       }
       if (got_a_ && got_b_) {
-      	if (ex_ != boost::exception_ptr ())
+      	if (ex_ != YAMAIL_FQNS_COMPAT::exception_ptr ())
       		p_.set_exception (ex_);
         else
           p_.set(); //completed
@@ -86,7 +86,7 @@ class future_and_func_impl : ::boost::noncopyable {
     promise<void> p_;
     bool got_a_, got_b_;
     YAMAIL_FQNS_COMPAT::mutex mutex_;
-    boost::exception_ptr ex_;
+    YAMAIL_FQNS_COMPAT::exception_ptr ex_;
 };
 
 class future_and_func {

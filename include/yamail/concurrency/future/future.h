@@ -56,8 +56,8 @@ class untyped_promise {
     template<typename E>
     typename boost::enable_if_c<
         detail::has_member_function_exception_ptr<
-          // boost::exception_ptr E::* ()
-          E, boost::exception_ptr
+          // YAMAIL_FQNS_COMPAT::exception_ptr E::* ()
+          E, YAMAIL_FQNS_COMPAT::exception_ptr
         >::value
       , void
     >::type set_exception_core( E const & e)
@@ -68,8 +68,8 @@ class untyped_promise {
     template<typename E>
     typename boost::disable_if_c<
         detail::has_member_function_exception_ptr<
-          // boost::exception_ptr E::* ()
-          E, boost::exception_ptr
+          // YAMAIL_FQNS_COMPAT::exception_ptr E::* ()
+          E, YAMAIL_FQNS_COMPAT::exception_ptr
         >::value
       , void
     >::type set_exception_core(E const & e)
@@ -82,7 +82,7 @@ class untyped_promise {
   typename boost::disable_if<
       boost::is_same< 
           typename YAMAIL_FQNS_COMPAT::type_traits::decay<E>::type
-        , boost::exception_ptr
+        , YAMAIL_FQNS_COMPAT::exception_ptr
       >
     , void
   >::type set_exception( E&& e ) 
@@ -97,15 +97,15 @@ class untyped_promise {
 #endif
     // Attempt's a 'throw', assuming there is an exception set
     void set_current_exception() {
-      f_->set_exception(boost::current_exception());
+      f_->set_exception(YAMAIL_FQNS_COMPAT::current_exception());
     }
 
-    void set_exception( const boost::exception_ptr & e) {
+    void set_exception( const YAMAIL_FQNS_COMPAT::exception_ptr & e) {
       f_->set_exception(e);
     }
 
 #if YAMAIL_USE_RVALUES
-    void set_exception(boost::exception_ptr&& e) {
+    void set_exception(YAMAIL_FQNS_COMPAT::exception_ptr&& e) {
       f_->set_exception(std::move (e));
     }
 #endif
@@ -198,7 +198,7 @@ template<typename R2> class future_unwrapper<future<R2> >
       }
       catch (...)
       {
-      	proxy_.set_exception (boost::current_exception ());
+      	proxy_.set_exception (YAMAIL_FQNS_COMPAT::current_exception ());
       }
     }
   };
@@ -345,7 +345,7 @@ template<typename R> class future : public future_unwrapper<R>
     		}
     		catch (...)
     		{
-          prom.set_exception (boost::current_exception());
+          prom.set_exception (YAMAIL_FQNS_COMPAT::current_exception());
         }
       }
 
@@ -573,7 +573,7 @@ template<typename R> class future_wrapper
       try {
         ft_.set(fn_());
       } catch (...) {
-        ft_.set_exception(boost::current_exception());
+        ft_.set_exception(YAMAIL_FQNS_COMPAT::current_exception());
       }
     }
     future<R> get_future() const {return future<R>(ft_);}
@@ -592,7 +592,7 @@ template<> class future_wrapper<void>
         fn_();
         ft_.set();
       } catch (...) {
-        ft_.set_exception(boost::current_exception());
+        ft_.set_exception(YAMAIL_FQNS_COMPAT::current_exception());
       }
     }
     future<void> get_future() const {return future<void>(ft_);}
