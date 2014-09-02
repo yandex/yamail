@@ -1,3 +1,4 @@
+/** @file */
 #ifndef _YAMAIL_LOG_TYPED_BACKEND_H_
 #define _YAMAIL_LOG_TYPED_BACKEND_H_
 #include <yamail/config.h>
@@ -32,9 +33,15 @@ namespace sinks = boost::log::sinks;
 namespace keywords = boost::log::keywords;
 namespace attributes = boost::log::attributes;
 
-
+/** @brief Log into logger */
 #define TYPED_LOG(logger) YAMAIL_FQNS_LOG::typed::make_primary_stream (logger)
 
+/**
+ * Log typed record, specify the table.
+ *
+ * @param logger base logger.
+ * @param table tskv table.
+ */
 #define TYPED_TABLE_LOG(logger, table) \
   YAMAIL_FQNS_LOG::typed::make_primary_stream (logger, table)
 
