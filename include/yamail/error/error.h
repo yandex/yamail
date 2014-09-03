@@ -45,14 +45,14 @@ typedef ::boost::error_info<struct tag_throw_system,
     std::error_code
 > std_system_error;
 
-std_system_error 
+inline std_system_error 
 system_error (std::error_code const& ec)
 {
   return std_system_error (ec);
 }
 
 #if YAMAIL_USE_RVALUES
-std_system_error 
+inline std_system_error 
 system_error (std::error_code&& ec)
 {
   return std_system_error (std::move (ec));
@@ -65,14 +65,14 @@ typedef ::boost::error_info<struct tag_throw_system,
     boost::system::error_code
 > boost_system_error;
 
-boost_system_error 
+inline boost_system_error 
 system_error (boost::system::error_code const& ec)
 {
 	return boost_system_error (ec);
 }
 
 #if YAMAIL_USE_RVALUES
-boost_system_error 
+inline boost_system_error 
 system_error (boost::system::error_code&& ec)
 {
 	return boost_system_error (YAMAIL_FQNS_COMPAT::move (ec));
