@@ -4,6 +4,7 @@
 #include <yamail/namespace.h>
 #include <yamail/compat/system.h>
 #include <yamail/compat/exception.h>
+#include <yamail/compat/move.h>
 
 #include <boost/exception_ptr.hpp>
 #include <boost/exception/all.hpp>
@@ -11,6 +12,7 @@
 #include <boost/exception/info_tuple.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/system/error_code.hpp>
 
 #include <exception>
 #include <string>
@@ -38,9 +40,44 @@ struct tag_throw_error_code {};
 
 typedef ::boost::error_info<struct tag_throw_error_code,int> error_code_info;
 
-// TO THINK: use variant<std|boost::error_code> ?
+#if defined(HAVE_STD_SYSTEM) && HAVE_STD_SYSTEM
 typedef ::boost::error_info<struct tag_throw_system, 
-    YAMAIL_FQNS_COMPAT::error_code> system_error;
+    std::error_code
+> std_system_error;
+
+std_system_error 
+system_error (std::error_code const& ec)
+{
+  return std_system_error (ec);
+}
+
+#if YAMAIL_USE_RVALUES
+std_system_error 
+system_error (std::error_code&& ec)
+{
+  return std_system_error (std::move (ec));
+}
+#endif // YAMAIL_USE_RVALUES
+
+#endif
+
+typedef ::boost::error_info<struct tag_throw_system, 
+    boost::system::error_code
+> boost_system_error;
+
+boost_system_error 
+system_error (boost::system::error_code const& ec)
+{
+	return boost_system_error (ec);
+}
+
+#if YAMAIL_USE_RVALUES
+boost_system_error 
+system_error (boost::system::error_code&& ec)
+{
+	return boost_system_error (YAMAIL_FQNS_COMPAT::move (ec));
+}
+#endif // YAMAIL_USE_RVALUES
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Generic error class.
@@ -202,17 +239,26 @@ protected:
   	try { throw_this (); }
   	catch (boost::exception const& e)
   	{
+#if defined(HAVE_STD_SYSTEM) && HAVE_STD_SYSTEM
   		// system error
-  		if (YAMAIL_FQNS_COMPAT::error_code const* se =
-  			  boost::get_error_info <system_error> (e))
+  		if (std::error_code const* se =
+  			  boost::get_error_info <std_system_error> (e))
       {
       	msg += ": ";
-#if 0 // do not want include asio headers here...
-      	if (*se == ::boost::asio::error::operation_aborted)
-      		msg += "Timeout";
-      	else
-#endif
       		msg += se->message ();
+      }
+#endif
+  		// boost system error
+      if (boost::system::error_code const* se =
+          boost::get_error_info <boost_system_error> (e))
+      {
+        msg += ": ";
+#if 0 // do not want include asio headers here...
+        if (*se == ::boost::asio::error::operation_aborted)
+          msg += "Timeout";
+        else
+#endif
+          msg += se->message ();
       }
 
       char const* const* file = 
