@@ -73,6 +73,9 @@ cmake . -DCMAKE_INSTALL_PREFIX=/usr \
 %{_includedir}/yamail/memory/*.h
 %{_includedir}/yamail/traits/*.h
 %{_includedir}/yamail/utility/*.h
+%{_includedir}/boost/tti/*.hpp
+%{_includedir}/boost/tti/detail/*.hpp
+%{_includedir}/boost/tti/gen/*.hpp
 
 %changelog
 
