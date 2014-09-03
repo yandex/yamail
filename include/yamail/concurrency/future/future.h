@@ -56,8 +56,7 @@ class untyped_promise {
     template<typename E>
     typename boost::enable_if_c<
         detail::has_member_function_exception_ptr<
-          // YAMAIL_FQNS_COMPAT::exception_ptr E::* ()
-          E, YAMAIL_FQNS_COMPAT::exception_ptr
+          YAMAIL_FQNS_COMPAT::exception_ptr (E::*)() const
         >::value
       , void
     >::type set_exception_core( E const & e)
@@ -68,8 +67,7 @@ class untyped_promise {
     template<typename E>
     typename boost::disable_if_c<
         detail::has_member_function_exception_ptr<
-          // YAMAIL_FQNS_COMPAT::exception_ptr E::* ()
-          E, YAMAIL_FQNS_COMPAT::exception_ptr
+          YAMAIL_FQNS_COMPAT::exception_ptr (E::*)() const
         >::value
       , void
     >::type set_exception_core(E const & e)

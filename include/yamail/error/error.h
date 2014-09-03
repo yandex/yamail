@@ -3,6 +3,7 @@
 #include <yamail/config.h>
 #include <yamail/namespace.h>
 #include <yamail/compat/system.h>
+#include <yamail/compat/exception.h>
 
 #include <boost/exception_ptr.hpp>
 #include <boost/exception/all.hpp>
@@ -188,9 +189,9 @@ public:
   	return private_message_i () + message_suffix ();
   }
 
-  virtual ::boost::exception_ptr exception_ptr() const
+  virtual YAMAIL_FQNS_COMPAT::exception_ptr exception_ptr() const
   { 
-  	return boost::copy_exception (*this);
+    return YAMAIL_FQNS_COMPAT::make_exception_ptr(*this);
   }
 
 protected:
@@ -276,8 +277,8 @@ private:
     inline name (std::string const& c, std::string const& pub,                \
                   std::string const& prv) : base (c, pub,prv) {}              \
     virtual inline ~name () throw () {}                                       \
-    virtual ::boost::exception_ptr exception_ptr() const                      \
-    { return ::boost::copy_exception (*this); }                               \
+    virtual YAMAIL_FQNS_COMPAT::exception_ptr exception_ptr() const           \
+    { return YAMAIL_FQNS_COMPAT::make_exception_ptr(*this); }                 \
 }
 
 struct deadline_error :
