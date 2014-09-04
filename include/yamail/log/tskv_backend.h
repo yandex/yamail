@@ -10,11 +10,15 @@
 #include <boost/log/expressions.hpp>
 #include <boost/log/sinks/sync_frontend.hpp>
 #include <boost/log/sinks/basic_sink_backend.hpp>
+#include <boost/log/sinks/text_file_backend.hpp>
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 #include <boost/log/attributes/value_visitation.hpp>
 #include <boost/log/attributes/scoped_attribute.hpp>
 #include <boost/log/utility/manipulators/add_value.hpp>
+
+#include <boost/chrono/chrono_io.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <boost/foreach.hpp>
 
@@ -32,7 +36,7 @@ namespace sinks = boost::log::sinks;
 namespace keywords = boost::log::keywords;
 
 BOOST_LOG_ATTRIBUTE_KEYWORD_TYPE (tskv_attributes, 
-    "tskv",
+    "tskv_attributes",
     y::log::typed::attributes_map)
 
 BOOST_LOG_ATTRIBUTE_KEYWORD (tskv_format, 
@@ -91,6 +95,24 @@ void print_value (std::basic_ostream<CharT,Traits>& os,
       print_visitor<CharT,Traits,DelimCharT>(os, name, delim_char));
 }
 
+template <typename CharT, typename Traits>
+std::basic_ostream<CharT,Traits>&
+operator<< (std::basic_ostream<CharT,Traits>& os, 
+    y::log::typed::attributes_map const& map)
+{
+  bool first = true;
+
+  BOOST_FOREACH (attr_name const& aname, cascade_keys (map))
+  {
+  	std::cout << "name = " << aname << "\n";
+    if (boost::optional<attr_value const&> aval = cascade_find (map, aname))
+      if (! is_deleted (*aval))
+      {
+        os << '\t' << aname << '=' << *aval;
+      }
+  }
+	return os;
+}
 
 
 template <typename CharT = char, typename Traits = std::char_traits<CharT> >
@@ -155,7 +177,7 @@ typedef basic_tskv_sink_backend<> tskv_sink_backend;
 
 template <typename CharT, typename Traits>
 inline void
-init_tskv_backend (std::basic_ostream<CharT, Traits>& os)
+init_tskv_backend2 (std::basic_ostream<CharT, Traits>& os)
 {
 	typedef basic_tskv_sink_backend<CharT,Traits> tskv_backend;
 	typedef sinks::synchronous_sink< tskv_backend > sink_t;
@@ -163,6 +185,33 @@ init_tskv_backend (std::basic_ostream<CharT, Traits>& os)
 	boost::shared_ptr< logging::core > core = logging::core::get();
 	boost::shared_ptr< tskv_backend > backend(new tskv_backend (os));
 	boost::shared_ptr< sink_t > sink(new sink_t(backend));
+
+	sink->set_filter (expr::has_attr (tskv_format));
+	core->add_sink(sink);
+}
+
+inline void
+init_tskv_backend (std::string const& file_mask)
+{
+	boost::shared_ptr< logging::core > core = logging::core::get();
+
+  boost::shared_ptr< sinks::text_file_backend > backend =
+      boost::make_shared< sinks::text_file_backend >(
+          keywords::file_name = file_mask,
+          keywords::rotation_size = 5 * 1024 * 1024
+      );
+
+  // Wrap it into the frontend and register in the core.
+  // The backend requires synchronization in the frontend.
+  typedef sinks::synchronous_sink< sinks::text_file_backend > sink_t;
+  boost::shared_ptr< sink_t > sink(new sink_t(backend));
+
+  sink->set_formatter
+  (
+    expr::format("tskv\ttskv_format=%1%%2%")
+      % expr::attr< std::string > ("tskv_format")
+      % expr::attr< y::log::typed::attributes_map > ("tskv_attributes")
+  );
 
 	sink->set_filter (expr::has_attr (tskv_format));
 	core->add_sink(sink);
