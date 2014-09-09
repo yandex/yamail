@@ -16,6 +16,7 @@
 #include <boost/log/attributes/value_visitation.hpp>
 #include <boost/log/attributes/scoped_attribute.hpp>
 #include <boost/log/utility/manipulators/add_value.hpp>
+#include <boost/log/utility/setup/formatter_parser.hpp>
 
 #include <boost/chrono/chrono_io.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -35,77 +36,28 @@ namespace expr = boost::log::expressions;
 namespace sinks = boost::log::sinks;
 namespace keywords = boost::log::keywords;
 
-BOOST_LOG_ATTRIBUTE_KEYWORD_TYPE (tskv_attributes, 
+#if 0
+BOOST_LOG_ATTRIBUTE_KEYWORD (tskv_attributes, 
     "tskv_attributes",
     y::log::typed::attributes_map)
+#endif
 
 BOOST_LOG_ATTRIBUTE_KEYWORD (tskv_format, 
     "tskv_format",
     std::string)
 
-template <typename CharT, typename Traits, typename DelimCharT>
-class print_visitor 
-{
-	std::basic_ostream<CharT,Traits>& os_;
-	logging::attribute_name const& name_;
-	DelimCharT delim_;
-
-public:
-	print_visitor (std::basic_ostream<CharT,Traits>& os,
-	  logging::attribute_name const& name, 
-	  DelimCharT delim) : os_ (os), name_ (name), delim_ (delim)
-	{}
-
-	typedef void result_type;
-
-	template <typename X> result_type operator() (X const& x) const
-	{
-		os_ << name_ << '=' << x;
-  }
-
-  result_type operator() (y::log::typed::attributes_map const& x) const
-	{
-		// os_ << x;
-		// os_ << "<HERE>";
-
-    bool first = true;
-		BOOST_FOREACH (attr_name const& aname, cascade_keys (x))
-		{
-			if (boost::optional<attr_value const&> aval = cascade_find (x, aname))
-				if (! is_deleted (*aval))
-        {
-          if (first) first = false;
-          else os_ << '\t';
-
-          os_ << aname << '=' << *aval;
-        }
-    }
-  }
-};
-
-template <typename CharT, typename Traits, typename DelimCharT>
-void print_value (std::basic_ostream<CharT,Traits>& os, 
-  logging::attribute_name const& name, 
-  logging::attribute_value const& attr, DelimCharT delim_char)
-{
-  typedef boost::mpl::vector<int, std::string, unsigned int,
-      y::log::typed::attributes_map> types;
-  // logging::visitation_result result = 
-    logging::visit<types> (attr, 
-      print_visitor<CharT,Traits,DelimCharT>(os, name, delim_char));
-}
-
-template <typename CharT, typename Traits>
+template <typename CharT, typename Traits, typename Alloc>
 std::basic_ostream<CharT,Traits>&
 operator<< (std::basic_ostream<CharT,Traits>& os, 
-    y::log::typed::attributes_map const& map)
+    y::log::typed::basic_attributes_map<CharT,Traits,Alloc> const& map)
 {
   bool first = true;
 
+  typedef typename attr<CharT,Traits,Alloc>::name attr_name;
   BOOST_FOREACH (attr_name const& aname, cascade_keys (map))
   {
-  	std::cout << "name = " << aname << "\n";
-    if (boost::optional<attr_value const&> aval = cascade_find (map, aname))
+    if (boost::optional<typename attr<CharT,Traits,Alloc>::value const&> aval =
+    	   cascade_find (map, aname))
       if (! is_deleted (*aval))
       {
         os << '\t' << aname << '=' << *aval;
@@ -114,108 +66,123 @@ operator<< (std::basic_ostream<CharT,Traits>& os,
 	return os;
 }
 
-
-template <typename CharT = char, typename Traits = std::char_traits<CharT> >
-class basic_tskv_sink_backend:
-  public sinks::basic_sink_backend<
-    sinks::combine_requirements<
-      sinks::synchronized_feeding,
-      sinks::flushing
-    >::type
-  >
+template <typename CharT, typename Traits, typename Alloc>
+class tskv_formatter
 {
-	typedef CharT char_type;
-
-private:
-  char_type delim_char_;
-  std::basic_ostream<CharT, Traits>& file_;
+public:
+  typedef void result_type;
 
 public:
-  explicit basic_tskv_sink_backend (std::basic_ostream<CharT, Traits>& file,
-      char_type delim = '\t')
-    : delim_char_ (delim)
-    , file_ (file)
+  typedef std::basic_string<CharT, Traits, Alloc> string_type;
+
+  explicit tskv_formatter (string_type const& fmt)
+    : format_ (fmt)
   {
   }
 
-  explicit basic_tskv_sink_backend (std::basic_ostream<CharT, Traits>& file,
-      char_type delim, char_type escape_char)
-    : delim_char_ (delim)
-    , file_ (file)
-  {
-  }
-
-  void consume (logging::record_view const& rec)
-  {
-  	file_ << "tskv\t";
-  	bool first = true;
-    BOOST_FOREACH (logging::attribute_value_set::value_type const& x,
-        rec.attribute_values())
+#if 0
+  template <typename CharT, typename Traits2, typename Alloc2>
+  void operator() (
+      logging::basic_formatting_ostream<CharT,Traits2,Alloc2>& strm,
+      logging::value_ref<basic_attributes_map<CharT,Traits2,Alloc2> const& value) const
+#else
+	template <typename Stream, typename Traits2, typename Alloc2>
+	void operator() (Stream& strm, 
+    logging::value_ref<basic_attributes_map<CharT,Traits2,Alloc2> > const& 
+      value) const
+#endif
+	{
+		if (value)
     {
-    	// file_ << x.first << "=";
-    	if (first) first = false;
-    	else file_ << '\t';
-    	print_value (file_, x.first, x.second, delim_char_);
+    	basic_attributes_map<CharT,Traits2,Alloc2> const& map = value.get ();
+    	strm << map;
     }
-
-    file_ << "\n";
-  }
-
-  void flush ()
-  {
-  	file_.flush ();
   }
 
 private:
-  void write_data ()
+  string_type format_;
+};
+
+template <typename CharT, typename Traits, typename Alloc>
+tskv_formatter<CharT,Traits,Alloc>
+make_tskv_formatter (std::basic_string<CharT,Traits,Alloc> const& str)
+{
+	return tskv_formatter<CharT,Traits,Alloc> (str);
+}
+
+template <
+    typename CharT
+  , typename Traits = std::char_traits<CharT>
+  , typename Alloc = std::allocator<CharT>
+>
+class tskv_formatter_factory
+    : public logging::basic_formatter_factory<
+          CharT
+        , basic_attributes_map<CharT,Traits,Alloc> 
+      >
+{
+	static CharT const delimiter_[];
+
+public:
+  typedef tskv_formatter_factory self_t;
+
+  typename self_t::formatter_type
+  create_formatter (logging::attribute_name const& name,
+      typename self_t::args_map const& args)
   {
-  	;
+  	typename self_t::args_map::const_iterator it = args.find (delimiter_);
+  	 // "delimeter");
+
+  	if (it != args.end ())
+    {
+    	return boost::phoenix::bind (
+    	      make_tskv_formatter (it->second), expr::stream,
+    	      expr::attr<basic_attributes_map<CharT,Traits,Alloc> > (name)
+    	);
+    }
+    else
+    {
+    	return expr::stream 
+    	    << expr::attr< basic_attributes_map<CharT,Traits,Alloc> >(name);
+    }
   }
 };
 
-typedef basic_tskv_sink_backend<> tskv_sink_backend;
+// works for char and wchar_t
+template <typename C, typename T, typename A>
+C const tskv_formatter_factory<C,T,A>::delimiter_[] =
+{ 'd', 'e', 'l', 'i', 'm', 'i', 't', 'e', 'r', '\0' };
 
-template <typename CharT, typename Traits>
-inline void
-init_tskv_backend2 (std::basic_ostream<CharT, Traits>& os)
+namespace detail {
+
+class tskv_formatter_init_helper
 {
-	typedef basic_tskv_sink_backend<CharT,Traits> tskv_backend;
-	typedef sinks::synchronous_sink< tskv_backend > sink_t;
+private:
+	tskv_formatter_init_helper ()
+	{
+#if 1
+		logging::register_formatter_factory ("tskv_attributes",
+		  boost::make_shared<tskv_formatter_factory<char> > ());
+#endif
+#if 1
+		logging::register_formatter_factory ("tskv_wattributes",
+		  boost::make_shared<tskv_formatter_factory<wchar_t> > ());
+#endif
+  }
 
-	boost::shared_ptr< logging::core > core = logging::core::get();
-	boost::shared_ptr< tskv_backend > backend(new tskv_backend (os));
-	boost::shared_ptr< sink_t > sink(new sink_t(backend));
+public:
+  inline static tskv_formatter_init_helper&
+  get_instance ()
+  {
+    static tskv_formatter_init_helper instance;
+    return instance;
+  }
+};
 
-	sink->set_filter (expr::has_attr (tskv_format));
-	core->add_sink(sink);
-}
+static const tskv_formatter_init_helper&
+    tskv_formatter_init_helper_ = tskv_formatter_init_helper::get_instance ();
 
-inline void
-init_tskv_backend (std::string const& file_mask)
-{
-	boost::shared_ptr< logging::core > core = logging::core::get();
-
-  boost::shared_ptr< sinks::text_file_backend > backend =
-      boost::make_shared< sinks::text_file_backend >(
-          keywords::file_name = file_mask,
-          keywords::rotation_size = 5 * 1024 * 1024
-      );
-
-  // Wrap it into the frontend and register in the core.
-  // The backend requires synchronization in the frontend.
-  typedef sinks::synchronous_sink< sinks::text_file_backend > sink_t;
-  boost::shared_ptr< sink_t > sink(new sink_t(backend));
-
-  sink->set_formatter
-  (
-    expr::format("tskv\ttskv_format=%1%%2%")
-      % expr::attr< std::string > ("tskv_format")
-      % expr::attr< y::log::typed::attributes_map > ("tskv_attributes")
-  );
-
-	sink->set_filter (expr::has_attr (tskv_format));
-	core->add_sink(sink);
-}
+} // namespace detail
 
 } // namespace typed
 #if defined(GENERATING_DOCUMENTATION)

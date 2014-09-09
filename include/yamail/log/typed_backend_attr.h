@@ -8,6 +8,7 @@
 #include <boost/log/attributes/attribute_value.hpp>
 #include <boost/log/attributes/attribute_value_impl.hpp>
 
+#if 0
 #if defined(GENERATING_DOCUMENTATION)
 namespace yamail { namespace log {
 #else
@@ -32,5 +33,5 @@ typedef attributes::attribute_value_impl<attributes_map> map_attribute_value;
 #else
 YAMAIL_FQNS_LOG_END
 #endif // GENERATING_DOCUMENTATION
-
+#endif
 #endif // _YAMAIL_LOG_TYPED_BACKEND_ATTR_H_

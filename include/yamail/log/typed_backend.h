@@ -17,6 +17,7 @@
 #include <boost/log/sources/record_ostream.hpp>
 #include <boost/log/attributes/value_visitation.hpp>
 #include <boost/log/attributes/scoped_attribute.hpp>
+#include <boost/log/attributes/constant.hpp>
 #include <boost/log/utility/manipulators/add_value.hpp>
 
 #if defined(GENERATING_DOCUMENTATION)
@@ -45,7 +46,13 @@ namespace attributes = boost::log::attributes;
 #define TYPED_TABLE_LOG(logger, table) \
   YAMAIL_FQNS_LOG::typed::make_primary_stream (logger, table)
 
-template <typename Logger> class secondary_stream;
+template <
+    typename Logger
+  , typename C
+  , typename Tr = std::char_traits<C>
+  , typename A = std::allocator<C>
+>
+class secondary_stream;
 
 namespace detail {
 
@@ -73,7 +80,8 @@ class primary_stream
 public:
 	primary_stream (Logger& logger) : logger_ (logger) {}
 
-	primary_stream (Logger& logger, std::string const& table) 
+  template <typename C, typename Tr, typename A>
+	primary_stream (Logger& logger, std::basic_string<C,Tr,A> const& table) 
 	: logger_ (logger) 
 	, sentry_ (
 	    detail::make_shared_ptr (
@@ -91,26 +99,32 @@ private:
   Logger& logger_;
   YAMAIL_FQNS_COMPAT::shared_ptr<logging::aux::attribute_scope_guard> sentry_;
 
-  template <typename L> 
-  friend secondary_stream<L>
-  operator<< (primary_stream<L> const& s, attributes_map& amap);
+  template <typename L, typename C, typename Tr, typename A>
+  friend secondary_stream<L,C,Tr,A>
+  operator<< (primary_stream<L> const& s, basic_attributes_map<C,Tr,A>& amap);
 
   // XXX: add && for c++11
-  template <typename L>
-  friend secondary_stream<L>
-  operator<< (primary_stream<L> const& s, attr_type const& attr);
+  template <typename L, typename C, typename Tr, typename A>
+  friend secondary_stream<L,C,Tr,A>
+  operator<< (primary_stream<L> const& s, 
+      typename attr<C,Tr,A>::type const& attr);
 };
 
-#if 1
-  template <typename L, typename Helper>
-  inline 
-  typename boost::enable_if_c<detail::is_predefined<Helper>::value, secondary_stream<L> >::type
-  operator<< (primary_stream<L> const& s, Helper const& helper)
-  {
-	  return secondary_stream<L> (s.logger (), helper ());
-  }
-#endif
-
+template<typename Logger, typename Predefined> 
+inline typename boost::enable_if_c<
+    detail::is_predefined<Predefined>::value
+  , secondary_stream<Logger, typename Logger::char_type>
+>::type
+operator<< (
+  primary_stream<Logger> const& strm, Predefined const& predefined)
+{
+	typedef typename Logger::char_type char_type;
+	typedef std::char_traits<char_type> traits_type;
+	typedef std::allocator<char_type> alloc_type;
+  return secondary_stream<Logger, typename Logger::char_type> (
+          strm.logger (), 
+          predefined.template operator()<char_type,traits_type,alloc_type> ());
+}
 
 template <typename Logger>
 inline primary_stream<Logger>
@@ -119,26 +133,36 @@ make_primary_stream (Logger& logger)
 	return primary_stream<Logger> (logger);
 }
 
-template <typename Logger>
+template <typename Logger, typename C, typename Tr, typename A>
 inline primary_stream<Logger>
-make_primary_stream (Logger& logger, std::string const& table)
+make_primary_stream (Logger& logger, std::basic_string<C,Tr,A> const& table)
 {
 	return primary_stream<Logger> (logger, table);
 }
 
-template <typename Logger>
+template <typename Logger, typename CharT>
+inline primary_stream<Logger>
+make_primary_stream (Logger& logger, CharT const* table)
+{
+	return primary_stream<Logger> (logger, std::basic_string<CharT> (table));
+}
+
+template <typename Logger, typename C, typename Tr, typename A>
 class secondary_stream
 {
 public:
-	secondary_stream (Logger& logger, attributes_map& amap) 
+  typedef basic_attributes_map<C,Tr,A> attributes_map_t;
+
+	secondary_stream (Logger& logger, attributes_map_t& amap) 
 	  : logger_ (logger)
 	  , amap_ptr_ (0)
 	  , amap_ (amap)
 	{}
 
-	secondary_stream (Logger& logger, attr_type const& attr) 
+	secondary_stream (Logger& logger, 
+	    typename attr<C,Tr,A>::type const& attr) 
 	  : logger_ (logger)
-	  , amap_ptr_ (new attributes_map)
+	  , amap_ptr_ (new attributes_map_t)
 	  , amap_ (*amap_ptr_)
 	{
 		try { amap_ << attr; }
@@ -161,35 +185,50 @@ public:
 #endif
   }
 
+  attributes_map_t& amap () const { return amap_; }
+
 private:
   Logger& logger_;
-  attributes_map* amap_ptr_;
-  attributes_map& amap_;
+  attributes_map_t* amap_ptr_;
+  attributes_map_t& amap_;
 
   // XXX: add && for c++11
-  template <typename L> friend secondary_stream<L> const&
-  operator<< (secondary_stream<L> const& s, attr_type const& attr)
+  template <typename L, typename XC, typename XTr, typename XA>
+  friend secondary_stream<L,XC,XTr,XA> const&
+  operator<< (secondary_stream<L,XC,XTr,XA> const& s, 
+      typename attr<C,Tr,A>::type const& attr)
   {
     s.amap_ << attr;
   	return s;
   }
-};
 
-template<typename Logger> struct predefined_traits<secondary_stream<Logger> >
-{
-	static const bool value = true;
-};
 
-template <typename Logger> inline secondary_stream<Logger> 
-operator<< (primary_stream<Logger> const& s, attributes_map& amap)
+template <typename L, typename  XC, typename XTr, typename XA, typename P>
+friend typename boost::enable_if_c<
+    detail::is_predefined<P>::value
+ ,  secondary_stream<L,XC,XTr,XA> const&
+>::type
+operator<< (secondary_stream<L,XC,XTr,XA> const& s, P const& predefined)
 {
-	return secondary_stream<Logger> (s.logger_, amap);
+  s.amap () << predefined.template operator()<XC,XTr,XA> ();
+  return s;
 }
 
-template <typename Logger> inline secondary_stream<Logger> 
-operator<< (primary_stream<Logger> const& s, attr_type const& attr)
+};
+
+template <typename Logger, typename C, typename Tr, typename A> 
+inline secondary_stream<Logger,C,Tr,A> 
+operator<< (primary_stream<Logger> const& s, basic_attributes_map<C,Tr,A>& amap)
 {
-	return secondary_stream<Logger> (s.logger_, attr);
+	return secondary_stream<Logger,C,Tr,A> (s.logger_, amap);
+}
+
+template <typename Logger, typename C, typename Tr, typename A> 
+inline secondary_stream<Logger,C,Tr,A> 
+operator<< (primary_stream<Logger> const& s, 
+    typename attr<C,Tr,A>::type const& attr)
+{
+	return secondary_stream<Logger,C,Tr,A> (s.logger_, attr);
 }
 
 } // namespace typed

@@ -19,7 +19,8 @@ template <typename C, typename T, class Cl, class D>
 std::basic_ostream<C,T>&
 operator<< (std::basic_ostream<C,T>& os, time_point<Cl,D> const& tp)
 {
-	return os << "(time_point)";
+	return os << 'T' << 'P';
+	// return os << "(time_point)";
 }
 
 } // namespace chrono
@@ -39,8 +40,9 @@ namespace detail {
 class time_attr_helper 
 {
 private:
-  template <typename Clock, typename SysClock>
-  attr_type 
+  template <typename C, typename Tr, typename A,
+      typename Clock, typename SysClock>
+  typename attr<C,Tr,A>::type 
   from_time_t (time_t time, long nanoseconds = 0L) const
   {
     // typedef Clock clock_type;
@@ -48,7 +50,7 @@ private:
     static const typename Clock::time_point    dst_now = Clock::now ();
     static const typename SysClock::time_point sys_now = SysClock::now ();
 
-    return make_attr (arg_time,
+    return basic_make_attr<C,Tr,A> (arg_time,
         SysClock::from_time_t (time) 
             - sys_now + dst_now 
             + YAMAIL_FQNS_COMPAT::chrono::nanoseconds (nanoseconds)
@@ -56,93 +58,128 @@ private:
   }
 
 public:
-  template <typename Clock, typename Duration>
-  inline attr_type
+  template <typename C, typename Tr, typename A,
+      typename Clock, typename Duration>
+  inline typename attr<C,Tr,A>::type 
   operator() (YAMAIL_FQNS_COMPAT::chrono::time_point<Clock, Duration> time)
   const
   {
-    return make_attr (arg_time, time);
+    return basic_make_attr<C,Tr,A> (arg_time, time);
   }
 
-  template <typename Clock, typename SysClock>
-  inline attr_type 
+  template <typename C, typename Tr, typename A, 
+      typename Clock, typename SysClock>
+  inline typename attr<C,Tr,A>::type 
   operator() (time_t time, long nanoseconds = 0L) const
   {
-  	return from_time_t<Clock, SysClock> (time, nanoseconds);
+  	return from_time_t<C,Tr,A,Clock,SysClock> (time, nanoseconds);
   }
 
-  inline attr_type operator() (time_t time, long nanoseconds = 0L) const
+  template <typename C, typename Tr, typename A> 
+  inline typename attr<C,Tr,A>::type 
+  operator() (time_t time, long nanoseconds = 0L) const
   {
     return from_time_t<
-                YAMAIL_FQNS_COMPAT::chrono::high_resolution_clock
+                C, Tr, A
+              , YAMAIL_FQNS_COMPAT::chrono::high_resolution_clock
               , YAMAIL_FQNS_COMPAT::chrono::system_clock
      > (time, nanoseconds);
   }
 
-  inline attr_type operator() (struct timeval const& tv) const
+  template <typename C, typename Tr, typename A> 
+  inline typename attr<C,Tr,A>::type 
+  operator() (struct timeval const& tv) const
   {
-    return (*this) (tv.tv_sec, 1000L * tv.tv_usec);
+    return operator ()<C,Tr,A> (tv.tv_sec, 1000L * tv.tv_usec);
   }
 
-  attr_type operator() (struct timespec const& ts) const
+  template <typename C, typename Tr, typename A> 
+  inline typename attr<C,Tr,A>::type 
+  operator() (struct timespec const& ts) const
   {
-    return (*this) (ts.tv_sec, ts.tv_nsec);
+    return operator()<C,Tr,A> (ts.tv_sec, ts.tv_nsec);
   }
+
+  template <typename C, typename Tr, typename A> 
+  inline typename attr<C,Tr,A>::type 
+  operator() () const
+  {
+    return operator()<C,Tr,A> (time (0));
+  }
+
+
 }; // time_attr_helper
 
 struct pid_attr_helper 
 {
-	attr_type operator() () const
+	template <typename C, typename Tr, typename A>
+	typename attr<C,Tr,A>::type 
+	operator() () const
 	{
-		return make_attr (arg_pid, ::getpid);
+		return basic_make_attr<C,Tr,A> (arg_pid, ::getpid);
   }
 
-	attr_type operator() (::pid_t pid) const
+	template <typename C, typename Tr, typename A>
+	typename attr<C,Tr,A>::type 
+	operator() (::pid_t pid) const
 	{
-		return make_attr (arg_pid, pid);
+		return basic_make_attr<C,Tr,A> (arg_pid, pid);
   }
 };
 
 struct ppid_attr_helper
 {
-  attr_type operator() () const
+	template <typename C, typename Tr, typename A>
+	typename attr<C,Tr,A>::type 
+  operator() () const
   {
-		return make_attr (arg_ppid, ::getppid);
+		return basic_make_attr<C,Tr,A> (arg_ppid, ::getppid);
   }
 
-  attr_type operator() (::pid_t ppid) const
+	template <typename C, typename Tr, typename A>
+	typename attr<C,Tr,A>::type 
+  operator() (::pid_t ppid) const
   {
-		return make_attr (arg_ppid, ppid);
+		return basic_make_attr<C,Tr,A> (arg_ppid, ppid);
   }
 };
 
 struct tid_attr_helper
 {
-	attr_type operator() (boost::thread::id tid) const
+	template <typename C, typename Tr, typename A>
+	typename attr<C,Tr,A>::type 
+	operator() (boost::thread::id tid) const
 	{
-		return make_attr (arg_tid, tid);
+		return basic_make_attr<C,Tr,A> (arg_tid, tid);
   }
 };
 
 struct process_name_attr_helper
 {
 	// TODO: cache process name
-	attr_type operator() () const
+	template <typename C, typename Tr, typename A>
+	typename attr<C,Tr,A>::type 
+	operator() () const
 	{
-		return make_attr (arg_process, YAMAIL_FQNS_LOG::detail::get_process_name ());
+		return basic_make_attr<C,Tr,A> (arg_process,  
+		    YAMAIL_FQNS_LOG::detail::get_process_name ());
   }
 
-	attr_type operator() (std::string const& process_name) const
+	template <typename C, typename Tr, typename A>
+	typename attr<C,Tr,A>::type 
+	operator() (std::string const& process_name) const
 	{
-		return make_attr (arg_process, process_name);
+		return basic_make_attr<C,Tr,A> (arg_process, process_name);
   }
 };
 
 struct priority_attr_helper
 {
-  attr_type operator() (priority_enum prio) const
+	template <typename C, typename Tr, typename A>
+	typename attr<C,Tr,A>::type 
+  operator() (priority_enum prio) const
   {
-  	return make_attr (arg_priority, prio);
+  	return basic_make_attr<C,Tr,A> (arg_priority, prio);
   }
 };
 
@@ -165,121 +202,17 @@ template<> struct is_predefined<process_name_attr_helper>
 
 template<> struct is_predefined<priority_attr_helper> 
 { static const bool value = true; };
-
 } // namespace detail
 
-template <typename X> struct predefined_traits
-{
-  static const bool value = false;
-};
 
-template <> struct predefined_traits<attributes_map>
-{
-	static const bool value = true;
-};
-
-template <typename T>
+template <typename C, typename Tr, typename A, typename P>
 inline typename boost::enable_if_c<
-    predefined_traits<T>::value
-  , T&
+    detail::is_predefined<P>::value
+  , basic_attributes_map<C,Tr,A>&
 >::type
-operator<< (T& map, detail::time_attr_helper const& time)
+operator<< (basic_attributes_map<C,Tr,A>& map, P const& predefined)
 {
-	return map 
-	    << time (YAMAIL_FQNS_COMPAT::chrono::high_resolution_clock::now ());
-}
-
-template <typename T>
-inline typename boost::enable_if_c<
-    predefined_traits<T>::value
-  , T const&
->::type
-operator<< (T const& map, detail::time_attr_helper const& time)
-{
-	return map 
-	    << time (YAMAIL_FQNS_COMPAT::chrono::high_resolution_clock::now ());
-}
-
-template <typename T>
-inline typename boost::enable_if_c<
-    predefined_traits<T>::value
-  , T&
->::type
-operator<< (T& map, detail::pid_attr_helper const& pid)
-{
-  return map << pid ();
-}
-
-template <typename T>
-inline typename boost::enable_if_c<
-    predefined_traits<T>::value
-  , T const&
->::type
-operator<< (T const& map, detail::pid_attr_helper const& pid)
-{
-  return map << pid ();
-}
-
-template <typename T>
-inline typename boost::enable_if_c<
-    predefined_traits<T>::value
-  , T&
->::type
-operator<< (T& map, detail::ppid_attr_helper const& ppid)
-{
-  return map << ppid ();
-}
-
-template <typename T>
-inline typename boost::enable_if_c<
-    predefined_traits<T>::value
-  , T const&
->::type
-operator<< (T const& map, detail::ppid_attr_helper const& ppid)
-{
-  return map << ppid ();
-}
-
-template <typename T>
-inline typename boost::enable_if_c<
-    predefined_traits<T>::value
-  , T&
->::type
-operator<< (T& map, detail::tid_attr_helper const& tid)
-{
-  return map << tid (boost::this_thread::get_id ());
-}
-
-template <typename T>
-inline typename boost::enable_if_c<
-    predefined_traits<T>::value
-  , T const&
->::type
-operator<< (T const& map, detail::tid_attr_helper const& tid)
-{
-  return map << tid (boost::this_thread::get_id ());
-}
-
-template <typename T>
-inline typename boost::enable_if_c<
-    predefined_traits<T>::value
-  , T&
->::type
-operator<< (T& map, detail::process_name_attr_helper const& srv)
-{
-	// TODO: get process_name name somehow (from proccess name?)
-  return map << srv ();
-}
-
-template <typename T>
-inline typename boost::enable_if_c<
-    predefined_traits<T>::value
-  , T const&
->::type
-operator<< (T const& map, detail::process_name_attr_helper const& srv)
-{
-	// TODO: get service name somehow (from proccess name?)
-  return map << srv ();
+  return map << predefined.template operator()<C,Tr,A> ();
 }
 
 namespace {
