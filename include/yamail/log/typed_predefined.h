@@ -11,21 +11,7 @@
 
 #include <boost/thread.hpp>
 
-#if defined(HAVE_STD_CHRONO) && HAVE_STD_CHRONO
-namespace std {
-namespace chrono {
-
-template <typename C, typename T, class Cl, class D>
-std::basic_ostream<C,T>&
-operator<< (std::basic_ostream<C,T>& os, time_point<Cl,D> const& tp)
-{
-	return os << 'T' << 'P';
-	// return os << "(time_point)";
-}
-
-} // namespace chrono
-}
-#endif
+#include <boost/log/detail/thread_id.hpp>
 
 #if defined(GENERATING_DOCUMENTATION)
 namespace yamail { namespace log {
@@ -36,6 +22,44 @@ YAMAIL_FQNS_LOG_BEGIN
 namespace typed {
 
 namespace detail {
+
+// time_point formatter helper
+template <typename TimePoint>
+class time_wrapper
+{
+public:
+  time_wrapper (TimePoint const& tp) : tp_ (tp) {}
+
+  template <typename CharT, typename Traits>
+  std::basic_ostream<CharT,Traits>&
+  output (std::basic_ostream<CharT,Traits>& os) const
+  {
+  	namespace xx = YAMAIL_FQNS_COMPAT::chrono;
+  	os << xx::time_fmt (xx::local, "%Y-%m-%d %H:%M:%S") << 
+	    xx::time_point_cast<
+	        YAMAIL_FQNS_COMPAT::chrono::system_clock::duration
+	    > (tp_);
+  	return os;
+  }
+
+private:
+  TimePoint tp_;
+};
+
+template <typename CharT, typename Traits, typename TimePoint>
+inline std::basic_ostream<CharT,Traits>&
+operator<< (std::basic_ostream<CharT,Traits>& os, 
+    time_wrapper<TimePoint> const& wrapper)
+{
+	return wrapper.output (os);
+}
+
+template <typename TimePoint>
+time_wrapper<TimePoint>
+make_time_wrapper (TimePoint const& tp)
+{
+	return time_wrapper<TimePoint> (tp);
+}
 
 class time_attr_helper 
 {
@@ -51,9 +75,11 @@ private:
     static const typename SysClock::time_point sys_now = SysClock::now ();
 
     return basic_make_attr<C,Tr,A> (arg_time,
+      make_time_wrapper (
         SysClock::from_time_t (time) 
             - sys_now + dst_now 
             + YAMAIL_FQNS_COMPAT::chrono::nanoseconds (nanoseconds)
+      )
     );
   }
 
@@ -64,7 +90,7 @@ public:
   operator() (YAMAIL_FQNS_COMPAT::chrono::time_point<Clock, Duration> time)
   const
   {
-    return basic_make_attr<C,Tr,A> (arg_time, time);
+    return basic_make_attr<C,Tr,A> (arg_time, make_time_wrapper (time));
   }
 
   template <typename C, typename Tr, typename A, 
@@ -79,11 +105,20 @@ public:
   inline typename attr<C,Tr,A>::type 
   operator() (time_t time, long nanoseconds = 0L) const
   {
+#if 0
     return from_time_t<
                 C, Tr, A
               , YAMAIL_FQNS_COMPAT::chrono::high_resolution_clock
               , YAMAIL_FQNS_COMPAT::chrono::system_clock
      > (time, nanoseconds);
+#else
+		return basic_make_attr<C,Tr,A> (arg_time,
+		  make_time_wrapper (
+		    YAMAIL_FQNS_COMPAT::chrono::system_clock::from_time_t (time) 
+		      + YAMAIL_FQNS_COMPAT::chrono::nanoseconds (nanoseconds)
+		  )
+    );
+#endif
   }
 
   template <typename C, typename Tr, typename A> 
@@ -116,7 +151,7 @@ struct pid_attr_helper
 	typename attr<C,Tr,A>::type 
 	operator() () const
 	{
-		return basic_make_attr<C,Tr,A> (arg_pid, ::getpid);
+		return basic_make_attr<C,Tr,A> (arg_pid, ::getpid ());
   }
 
 	template <typename C, typename Tr, typename A>
@@ -133,7 +168,7 @@ struct ppid_attr_helper
 	typename attr<C,Tr,A>::type 
   operator() () const
   {
-		return basic_make_attr<C,Tr,A> (arg_ppid, ::getppid);
+		return basic_make_attr<C,Tr,A> (arg_ppid, ::getppid ());
   }
 
 	template <typename C, typename Tr, typename A>
@@ -146,6 +181,14 @@ struct ppid_attr_helper
 
 struct tid_attr_helper
 {
+	template <typename C, typename Tr, typename A>
+	typename attr<C,Tr,A>::type 
+	operator() () const
+	{
+		return basic_make_attr<C,Tr,A> (arg_tid, 
+		    boost::log::aux::this_thread::get_id ());
+  }
+
 	template <typename C, typename Tr, typename A>
 	typename attr<C,Tr,A>::type 
 	operator() (boost::thread::id tid) const
