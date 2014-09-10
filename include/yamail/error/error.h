@@ -316,8 +316,8 @@ private:
 
 
 #define YAMAIL_ERROR_DEF(name,base,cl,xpub) public base {                     \
-    explicit inline name () : base (cl,xpub) {}                               \
-    inline name (std::string const& pub) : base (cl, pub) {}                  \
+    explicit inline name () : base (cl,xpub, std::string ()) {}               \
+    inline name (std::string const& pub) : base (cl, pub, std::string ()) {}  \
     inline name (std::string const& pub, std::string const& prv)              \
         : base (cl,pub,prv) {}                                                \
     inline name (std::string const& c, std::string const& pub,                \
