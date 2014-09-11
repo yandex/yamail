@@ -36,10 +36,13 @@ namespace expr = boost::log::expressions;
 namespace sinks = boost::log::sinks;
 namespace keywords = boost::log::keywords;
 
-#if 0
+#if 1
 BOOST_LOG_ATTRIBUTE_KEYWORD (tskv_attributes, 
     "tskv_attributes",
     y::log::typed::attributes_map)
+BOOST_LOG_ATTRIBUTE_KEYWORD (tskv_wattributes, 
+    "tskv_wattributes",
+    y::log::typed::wattributes_map)
 #endif
 
 BOOST_LOG_ATTRIBUTE_KEYWORD (tskv_format, 
@@ -130,8 +133,8 @@ public:
   create_formatter (logging::attribute_name const& name,
       typename self_t::args_map const& args)
   {
+
   	typename self_t::args_map::const_iterator it = args.find (delimiter_);
-  	 // "delimeter");
 
   	if (it != args.end ())
     {
@@ -166,7 +169,7 @@ private:
 #endif
 #if 1
 		logging::register_formatter_factory ("tskv_wattributes",
-		  boost::make_shared<tskv_formatter_factory<wchar_t> > ());
+		  boost::make_shared<tskv_formatter_factory<char> > ());
 #endif
   }
 

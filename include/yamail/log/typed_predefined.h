@@ -9,9 +9,12 @@
 
 #include <time.h> // timespec and co.
 
+#include <boost/version.hpp>
 #include <boost/thread.hpp>
 
-#include <boost/log/detail/thread_id.hpp>
+#if BOOST_VERSION >= 105500
+# include <boost/log/detail/thread_id.hpp>
+#endif
 
 #if defined(GENERATING_DOCUMENTATION)
 namespace yamail { namespace log {
@@ -35,10 +38,27 @@ public:
   output (std::basic_ostream<CharT,Traits>& os) const
   {
   	namespace xx = YAMAIL_FQNS_COMPAT::chrono;
-  	os << xx::time_fmt (xx::local, "%Y-%m-%d %H:%M:%S") << 
+
+  	YAMAIL_FQNS_COMPAT::chrono::system_clock::time_point tmp =
 	    xx::time_point_cast<
 	        YAMAIL_FQNS_COMPAT::chrono::system_clock::duration
 	    > (tp_);
+
+    const static CharT fmt_time[] = {
+    	'%', 'Y', '-', '%', 'm', '-', '%', 'd', ' ',
+    	'%', 'H', '-', '%', 'M', '-', '%', 'S', '\0'
+    };
+
+    const static CharT fmt_zone[] = { '%', 'z', '\0' };
+
+    const static CharT timezone[] = 
+      { '\t', 't', 'i', 'm', 'e', 'z', 'o', 'n', 'e', '\0' };
+
+  	os 
+  	  << time_fmt (xx::local, fmt_time) << tmp
+  	  << timezone
+  	  << time_fmt (xx::local, fmt_zone) << tmp
+    ;
   	return os;
   }
 
@@ -179,6 +199,7 @@ struct ppid_attr_helper
   }
 };
 
+#if BOOST_VERSION >= 105500
 struct tid_attr_helper
 {
 	template <typename C, typename Tr, typename A>
@@ -196,6 +217,7 @@ struct tid_attr_helper
 		return basic_make_attr<C,Tr,A> (arg_tid, tid);
   }
 };
+#endif
 
 struct process_name_attr_helper
 {
@@ -237,8 +259,10 @@ template<> struct is_predefined<pid_attr_helper>
 template<> struct is_predefined<ppid_attr_helper> 
 { static const bool value = true; };
 
+#if BOOST_VERSION >= 105500
 template<> struct is_predefined<tid_attr_helper> 
 { static const bool value = true; };
+#endif
 
 template<> struct is_predefined<process_name_attr_helper> 
 { static const bool value = true; };
@@ -262,7 +286,9 @@ namespace {
 const detail::time_attr_helper time_attr = detail::time_attr_helper ();
 const detail::pid_attr_helper pid_attr = detail::pid_attr_helper ();
 const detail::ppid_attr_helper ppid_attr = detail::ppid_attr_helper ();
+#if BOOST_VERSION >= 105500
 const detail::tid_attr_helper tid_attr = detail::tid_attr_helper ();
+#endif
 const detail::process_name_attr_helper process_name_attr =
     detail::process_name_attr_helper ();
 const detail::priority_attr_helper priority_attr = 

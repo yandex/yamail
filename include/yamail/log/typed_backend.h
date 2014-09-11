@@ -74,6 +74,7 @@ make_shared_ptr (T const& t)
 
 } // namespace detail
 
+////////////////////////////////////////////////////////////////////////////////
 template <typename Logger>
 class primary_stream
 {
@@ -110,6 +111,7 @@ private:
       typename attr<C,Tr,A>::type const& attr);
 };
 
+////////////////////////////////////////////////////////////////////////////////
 template<typename Logger, typename Predefined> 
 inline typename boost::enable_if_c<
     detail::is_predefined<Predefined>::value
@@ -147,12 +149,35 @@ make_primary_stream (Logger& logger, CharT const* table)
 	return primary_stream<Logger> (logger, std::basic_string<CharT> (table));
 }
 
+////////////////////////////////////////////////////////////////////////////////
+template <typename CharT> struct put_attr_map_in_logger;
+
+template <> struct put_attr_map_in_logger<char>
+{
+	template <typename Logger, typename AttributesMap>
+	static void apply (Logger& logger, AttributesMap& amap)
+	{
+	  BOOST_LOG(logger) << logging::add_value ("tskv_attributes", amap);
+  }
+};
+
+template <> struct put_attr_map_in_logger<wchar_t>
+{
+	template <typename Logger, typename AttributesMap>
+	static void apply (Logger& logger, AttributesMap& amap)
+	{
+	  BOOST_LOG(logger) << logging::add_value ("tskv_wattributes", amap);
+  }
+};
+
+////////////////////////////////////////////////////////////////////////////////
 template <typename Logger, typename C, typename Tr, typename A>
 class secondary_stream
 {
 public:
   typedef basic_attributes_map<C,Tr,A> attributes_map_t;
 
+public:
 	secondary_stream (Logger& logger, attributes_map_t& amap) 
 	  : logger_ (logger)
 	  , amap_ptr_ (0)
@@ -169,20 +194,9 @@ public:
 		catch (...) { delete amap_ptr_; throw; }
 	}
 
-	~secondary_stream ()
+	~secondary_stream () 
 	{
-
-		// do actual logging...
-#if 0
-    BOOST_FOREACH (attr_name const& attr, cascade_keys (amap_))
-    {
-    	boost::optional<attr_value const&> val = cascade_find (amap_, attr);
-    	if (val && ! is_deleted (*val))
-      	  logger_ << attr << " = " << *val << "\n";
-    }
-#else
-		BOOST_LOG(logger_) << logging::add_value ("tskv_attributes", amap_);
-#endif
+		put_attr_map_in_logger<C>::apply (logger_, amap_);
   }
 
   attributes_map_t& amap () const { return amap_; }
@@ -203,19 +217,20 @@ private:
   }
 
 
-template <typename L, typename  XC, typename XTr, typename XA, typename P>
-friend typename boost::enable_if_c<
-    detail::is_predefined<P>::value
- ,  secondary_stream<L,XC,XTr,XA> const&
->::type
-operator<< (secondary_stream<L,XC,XTr,XA> const& s, P const& predefined)
-{
-  s.amap () << predefined.template operator()<XC,XTr,XA> ();
-  return s;
-}
+  template <typename L, typename  XC, typename XTr, typename XA, typename P>
+  friend typename boost::enable_if_c<
+      detail::is_predefined<P>::value
+   ,  secondary_stream<L,XC,XTr,XA> const&
+  >::type
+  operator<< (secondary_stream<L,XC,XTr,XA> const& s, P const& predefined)
+  {
+    s.amap () << predefined.template operator()<XC,XTr,XA> ();
+    return s;
+  }
 
 };
 
+////////////////////////////////////////////////////////////////////////////////
 template <typename Logger, typename C, typename Tr, typename A> 
 inline secondary_stream<Logger,C,Tr,A> 
 operator<< (primary_stream<Logger> const& s, basic_attributes_map<C,Tr,A>& amap)
