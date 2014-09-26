@@ -18,7 +18,7 @@ enabled with the -std=c++11 or -std=gnu++11 compiler options.
 #include <utility>
 
 #if defined(GENERATING_DOCUMENTATION)
-}}
+namespace yamail { namespace utility {
 #else
 YAMAIL_FQNS_UTILITY_BEGIN
 #endif // GENERATING_DOCUMENTATION

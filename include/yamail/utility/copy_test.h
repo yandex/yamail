@@ -6,7 +6,7 @@
 #include <iostream>
 
 #if defined(GENERATING_DOCUMENTATION)
-}}
+namespace yamail { namespace utility {
 #else
 YAMAIL_FQNS_UTILITY_BEGIN
 #endif // GENERATING_DOCUMENTATION
