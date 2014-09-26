@@ -76,6 +76,10 @@
 #  define HAVE_STD_TYPE_TRAITS 1
 # endif
 
+# if !defined(HAVE_STD_ADDRESSOF)
+#  define HAVE_STD_ADDRESSOF 1
+# endif
+
 # if !defined(HAVE_STATIC_ASSERT)
 #  define HAVE_STATIC_ASSERT 1
 # endif
@@ -121,6 +125,10 @@
 
 # if !defined(HAVE_STD_TYPE_TRAITS)
 #  define HAVE_STD_TYPE_TRAITS 0
+# endif
+
+# if !defined(HAVE_STD_ADDRESSOF)
+#  define HAVE_STD_ADDRESSOF 0
 # endif
 
 # if !defined(HAVE_STATIC_ASSERT)

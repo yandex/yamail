@@ -7,8 +7,12 @@
 # include <yamail/utility/capture.h>
 # include <yamail/utility/in.h>
 # include <yamail/utility/rref.h>
+<<<<<<< HEAD
 # include <yamail/utility/enable_if_ext.h>
+=======
+>>>>>>> typed-log
 #endif
 
+#include <yamail/utility/update_iterator.h>
 
 #endif // _YAMAIL_UTILITY_H_

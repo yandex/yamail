@@ -1272,6 +1272,9 @@
         <xsl:with-param name="class-name" select="$class-name"/>
       </xsl:call-template>
     </xsl:when>
+    <xsl:when test="@kind='define'">
+      <xsl:call-template name="variable" mode="class-detail"/>
+    </xsl:when>
     <xsl:when test="@kind='variable'">
       <xsl:call-template name="variable" mode="class-detail"/>
     </xsl:when>
@@ -1625,6 +1628,9 @@
       <xsl:call-template name="typedef">
         <xsl:with-param name="class-name" select="$name"/>
       </xsl:call-template>
+    </xsl:when>
+    <xsl:when test="@kind='define'">
+      <xsl:call-template name="variable"/>
     </xsl:when>
     <xsl:when test="@kind='variable'">
       <xsl:call-template name="variable"/>

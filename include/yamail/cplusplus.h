@@ -19,14 +19,19 @@
 # define _noexcept noexcept
 # define _constexpr constexpr
 
-# define YAMAIL_USE_RVALUES 1
+# if !defined(YAMAIL_USE_RVALUES)
+#  define YAMAIL_USE_RVALUES 1
+# endif
 
 #else // earlier than C++11
 
 # define _noexcept throw()
 # define _constexpr
 
-# define YAMAIL_USE_RVALUES 0
+# if !defined(YAMAIL_USE_RVALUES)
+#  define YAMAIL_USE_RVALUES 0
+# endif
+
 
 #endif // earlier than C++11
 

@@ -6,6 +6,7 @@
 
 #if defined(HAVE_STD_CHRONO) && HAVE_STD_CHRONO
 # include <chrono>
+# include <yamail/compat/chrono_io.h>
 #else 
 # include <boost/chrono.hpp>
 #endif // HAVE_STD_CHRONO
