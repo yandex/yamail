@@ -27,11 +27,11 @@ namespace typed {
 namespace detail {
 
 // time_point formatter helper
-template <typename TimePoint>
-class time_wrapper
+template <typename Derived, typename TimePoint>
+class time_wrapper_base
 {
 public:
-  time_wrapper (TimePoint const& tp) : tp_ (tp) {}
+  time_wrapper_base (TimePoint const& tp) : tp_ (tp) {}
 
   template <typename CharT, typename Traits>
   std::basic_ostream<CharT,Traits>&
@@ -54,17 +54,84 @@ public:
     const static CharT timezone[] = 
       { '\t', 't', 'i', 'm', 'e', 'z', 'o', 'n', 'e', '\0' };
 
+#if 0
   	os 
   	  << time_fmt (xx::local, fmt_time) << tmp
   	  << timezone
   	  << time_fmt (xx::local, fmt_zone) << tmp
     ;
+#else
+		static_cast<Derived const&> (*this).
+		  print_time_point (os, tmp, timezone, fmt_time, fmt_zone);
+#endif
   	return os;
   }
 
 private:
   TimePoint tp_;
 };
+
+template <typename TimePoint> struct time_wrapper;
+
+#if defined(HAVE_STD_CHRONO) && HAVE_STD_CHRONO
+template <typename Clock, typename Duration>
+struct time_wrapper<std::chrono::time_point<Clock,Duration> >
+  : time_wrapper_base<
+        time_wrapper<std::chrono::time_point<Clock,Duration> >,
+        std::chrono::time_point<Clock,Duration>
+    >
+{
+	typedef time_wrapper_base <
+	    time_wrapper<std::chrono::time_point<Clock,Duration> >,
+	    std::chrono::time_point<Clock,Duration>
+	> time_wrapper_base_;
+
+	time_wrapper (std::chrono::time_point<Clock,Duration> const& tp) 
+	  : time_wrapper_base_ (tp) 
+	{
+	}
+
+	template <typename TimePoint, typename CharT, typename Traits>
+	void print_time_point (std::basic_ostream<CharT,Traits>& os,
+	    TimePoint const& tp, CharT const* timezone_str, 
+	    CharT const* time_str, CharT const* zone_str) const
+	{
+		namespace xx = YAMAIL_FQNS_COMPAT::chrono;
+		os << time_fmt (xx::local, time_str) << tp
+		   << timezone_str
+		   << time_fmt (xx::local, zone_str) << tp;
+  }
+};
+#else
+template <typename Clock, typename Duration>
+struct time_wrapper<boost::chrono::time_point<Clock,Duration> >
+  : time_wrapper_base<
+        time_wrapper<boost::chrono::time_point<Clock,Duration> >,
+        boost::chrono::time_point<Clock,Duration>
+    >
+{
+	typedef time_wrapper_base <
+	    time_wrapper<boost::chrono::time_point<Clock,Duration> >,
+	    boost::chrono::time_point<Clock,Duration>
+	> time_wrapper_base_;
+
+	time_wrapper (boost::chrono::time_point<Clock,Duration> const& tp) 
+	  : time_wrapper_base_ (tp) 
+	{
+	}
+
+	template <typename TimePoint, typename CharT, typename Traits>
+	void print_time_point (std::basic_ostream<CharT,Traits>& os,
+	    TimePoint const& tp, CharT const* timezone_str, 
+	    CharT const* time_str, CharT const* zone_str) const
+	{
+		namespace xx = YAMAIL_FQNS_COMPAT::chrono;
+		os << time_fmt (xx::timezone::local, time_str) << tp
+		   << timezone_str
+		   << time_fmt (xx::timezone::local, zone_str) << tp;
+  }
+};
+#endif
 
 template <typename CharT, typename Traits, typename TimePoint>
 inline std::basic_ostream<CharT,Traits>&

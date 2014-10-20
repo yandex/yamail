@@ -128,10 +128,12 @@ template <class charT, class Traits, class Duration>
 
 */
 
+#include <algorithm>
 #include <chrono>
 #include <yamail/compat/ratio_io.h>
 
-_LIBCPP_BEGIN_NAMESPACE_STD
+// _LIBCPP_BEGIN_NAMESPACE_STD
+namespace std {
 
 namespace chrono
 {
@@ -158,6 +160,7 @@ round(const duration<Rep, Period>& d)
 }
 
 enum duration_style {prefix, symbol};
+
 enum timezone {utc, local};
 
 template <typename Dummy = void>
@@ -350,8 +353,8 @@ template <class _CharT, class _Traits, class _Rep, class _Period>
 basic_istream<_CharT, _Traits>&
 operator>>(basic_istream<_CharT, _Traits>& __is, duration<_Rep, _Period>& __d)
 {
-    typedef basic_string<_CharT> string_type;
-    typedef durationpunct<> _F;
+    // typedef basic_string<_CharT> string_type;
+    // typedef durationpunct<> _F;
     typedef typename __duration_io_intermediate<_Rep>::type _IR;
     _IR __r;
     // read value into __r
@@ -684,7 +687,7 @@ public:
         : locale::facet(refs), fmt_(std::move(fmt)), tz_(tz) {}
 
     const string_type& fmt() const noexcept {return fmt_;}
-    chrono::timezone timezone() const noexcept {return tz_;}
+    timezone get_timezone() const noexcept {return tz_;}
 };
 
 template <class CharT>
@@ -827,7 +830,7 @@ operator<<(basic_ostream<_CharT, _Traits>& __os,
                 const F& f = use_facet<F>(loc);
                 pb = f.fmt().data();
                 pe = pb + f.fmt().size();
-                tz = f.timezone();
+                tz = f.get_timezone();
             }
             time_t __t = system_clock::to_time_t(__tp);
             tm __tm;
@@ -1055,6 +1058,7 @@ operator>>(basic_istream<_CharT, _Traits>& __is,
 
 }  // chrono
 
-_LIBCPP_END_NAMESPACE_STD
+// _LIBCPP_END_NAMESPACE_STD
+}
 
 #endif  // _CHRONO_IO

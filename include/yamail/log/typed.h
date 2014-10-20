@@ -365,6 +365,16 @@ template <
   , typename Tr = std::char_traits<C>
   , typename A = std::allocator<C>
 >
+class basic_attributes_map;
+
+// forward declaration of friend function. 
+// it will be defined after class basic_attributes_map below.
+template <typename C, typename Tr, typename A>
+basic_attributes_map<C,Tr,A>
+scoped (basic_attributes_map<C,Tr,A>& map);
+
+/// Typed log attributes map.
+template < typename C , typename Tr, typename A>
 class basic_attributes_map 
 {
 public:
@@ -652,7 +662,7 @@ protected:
   }
 
  private:
-  friend basic_attributes_map scoped (basic_attributes_map& map);
+  friend basic_attributes_map scoped<> (basic_attributes_map& map);
 
   proxy_ptr proxy_;
 };

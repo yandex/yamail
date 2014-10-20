@@ -15,6 +15,12 @@
 #include <boost/utility.hpp>
 #endif // __HAVE_STD_ADDRESSOF
 
+#if defined(HAVE_STD_RATIO) && HAVE_STD_RATIO
+# include <ratio>
+#else
+#include <boost/ratio.hpp>
+#endif // __HAVE_STD_ADDRESSOF
+
 #if defined(GENERATING_DOCUMENTATION)
 namespace yamail { namespace compat {
 #else
@@ -25,6 +31,12 @@ YAMAIL_FQNS_COMPAT_BEGIN
 using std::addressof;
 #else
 using boost::addressof;
+#endif // __HAVE_STD_FUNCTION
+
+#if defined(HAVE_STD_RATIO) && HAVE_STD_RATIO
+using std::ratio;
+#else
+using boost::ratio;
 #endif // __HAVE_STD_FUNCTION
 
 #if defined(GENERATING_DOCUMENTATION)

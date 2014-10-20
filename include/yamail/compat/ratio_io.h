@@ -33,7 +33,8 @@ struct ratio_string
 #include <string>
 #include <sstream>
 
-_LIBCPP_BEGIN_NAMESPACE_STD
+// _LIBCPP_BEGIN_NAMESPACE_STD
+namespace std {
 
 template <class _Ratio, class _CharT>
 struct ratio_string
@@ -596,6 +597,7 @@ struct ratio_string<exa, wchar_t>
     static wstring prefix()  {return wstring(L"exa");}
 };
 
-_LIBCPP_END_NAMESPACE_STD
+// _LIBCPP_END_NAMESPACE_STD
+}
 
 #endif  // _RATIO_IO

@@ -18,6 +18,8 @@
 
 # define _noexcept noexcept
 # define _constexpr constexpr
+# define _inline_ns inline
+# define _explicit_cvt_func explicit
 
 # if !defined(YAMAIL_USE_RVALUES)
 #  define YAMAIL_USE_RVALUES 1
@@ -27,6 +29,8 @@
 
 # define _noexcept throw()
 # define _constexpr
+# define _inline_ns
+# define _explicit_cvt_func
 
 # if !defined(YAMAIL_USE_RVALUES)
 #  define YAMAIL_USE_RVALUES 0
