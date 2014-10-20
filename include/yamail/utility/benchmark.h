@@ -15,7 +15,7 @@ YAMAIL_FQNS_UTILITY_BEGIN
       __bench__ = YAMAIL_FQNS_COMPAT::chrono::high_resolution_clock::now ();
 
 #define end_benchmark() \
-	(__bench__ - YAMAIL_FQNS_COMPAT::chrono::high_resolution_clock::now ())
+	(YAMAIL_FQNS_COMPAT::chrono::high_resolution_clock::now () - __bench__)
 
 #if defined(GENERATING_DOCUMENTATION)
 }}
