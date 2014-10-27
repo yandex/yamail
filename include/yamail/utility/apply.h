@@ -30,17 +30,17 @@ YAMAIL_FQNS_UTILITY_BEGIN
 namespace detail {
 
 template<typename F, typename Tuple, std::size_t ... I>
-auto apply_impl(F&& f, Tuple&& t, std::index_sequence<I...>) {
+decltype(auto) apply_impl(F&& f, Tuple&& t, std::index_sequence<I...>) {
     return std::forward<F>(f)(std::get<I>(std::forward<Tuple>(t))...);
 }
 
 } // namespace detail
 
 template<typename F, typename Tuple>
-auto apply(F&& f, Tuple&& t) {
+decltype(auto) apply(F&& f, Tuple&& t) {
     using Indices = 
         std::make_index_sequence<std::tuple_size<std::decay_t<Tuple>>::value>;
-    return detil::apply_impl(std::forward<F>(f), std::forward<Tuple>(t), 
+    return detail::apply_impl(std::forward<F>(f), std::forward<Tuple>(t), 
                               Indices());
 }
 
