@@ -18,7 +18,7 @@ enabled with the -std=c++11 or -std=gnu++11 compiler options.
 #include <utility>
 
 #if defined(GENERATING_DOCUMENTATION)
-}}
+namespace yamail { namespace utility {
 #else
 YAMAIL_FQNS_UTILITY_BEGIN
 #endif // GENERATING_DOCUMENTATION
@@ -27,19 +27,26 @@ YAMAIL_FQNS_UTILITY_BEGIN
 
 #if YAMAIL_CPP >= 14
 
+namespace detail {
+
 template<typename F, typename Tuple, std::size_t ... I>
 auto apply_impl(F&& f, Tuple&& t, std::index_sequence<I...>) {
     return std::forward<F>(f)(std::get<I>(std::forward<Tuple>(t))...);
 }
 
+} // namespace detail
+
 template<typename F, typename Tuple>
 auto apply(F&& f, Tuple&& t) {
     using Indices = 
         std::make_index_sequence<std::tuple_size<std::decay_t<Tuple>>::value>;
-    return apply_impl(std::forward<F>(f), std::forward<Tuple>(t), Indices());
+    return detil::apply_impl(std::forward<F>(f), std::forward<Tuple>(t), 
+                              Indices());
 }
 
 #else 
+
+namespace detail {
 
 template<size_t N>
 struct Apply {
@@ -66,14 +73,16 @@ struct Apply<0> {
     }
 };
 
+} // namespace detail 
+
 template<typename F, typename T, typename... A>
 inline auto apply(F && f, T && t, A &&... a)
-    -> decltype(Apply< ::std::tuple_size<
+    -> decltype(detail::Apply< ::std::tuple_size<
         typename ::std::decay<T>::type
     >::value>::apply(::std::forward<F>(f), ::std::forward<T>(t),
      ::std::forward<A> (a)...))
 {
-    return Apply< ::std::tuple_size<
+    return detail::Apply< ::std::tuple_size<
         typename ::std::decay<T>::type
     >::value>::apply(::std::forward<F>(f), ::std::forward<T>(t),
       ::std::forward<A> (a)...);

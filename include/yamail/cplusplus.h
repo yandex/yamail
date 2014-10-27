@@ -2,7 +2,7 @@
 #define _YAMAIL_CPLUSPLUS_H_
 #include <yamail/config.h>
 
-#if _cplusplus >= 201300L // C++1y
+#if __cplusplus >= 201300L // C++1y
 # define YAMAIL_CPP 14
 # define YAMAIL_CPP14 __cplusplus
 #elif __cplusplus >= 201103L 
@@ -18,15 +18,24 @@
 
 # define _noexcept noexcept
 # define _constexpr constexpr
+# define _inline_ns inline
+# define _explicit_cvt_func explicit
 
-# define YAMAIL_USE_RVALUES 1
+# if !defined(YAMAIL_USE_RVALUES)
+#  define YAMAIL_USE_RVALUES 1
+# endif
 
 #else // earlier than C++11
 
 # define _noexcept throw()
 # define _constexpr
+# define _inline_ns
+# define _explicit_cvt_func
 
-# define YAMAIL_USE_RVALUES 0
+# if !defined(YAMAIL_USE_RVALUES)
+#  define YAMAIL_USE_RVALUES 0
+# endif
+
 
 #endif // earlier than C++11
 
