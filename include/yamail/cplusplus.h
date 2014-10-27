@@ -2,7 +2,7 @@
 #define _YAMAIL_CPLUSPLUS_H_
 #include <yamail/config.h>
 
-#if _cplusplus >= 201300L // C++1y
+#if __cplusplus >= 201300L // C++1y
 # define YAMAIL_CPP 14
 # define YAMAIL_CPP14 __cplusplus
 #elif __cplusplus >= 201103L 
