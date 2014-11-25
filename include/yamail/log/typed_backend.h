@@ -85,11 +85,20 @@ public:
 	primary_stream (Logger& logger, std::basic_string<C,Tr,A> const& table) 
 	: logger_ (logger) 
 	, sentry_ (
+#if 0
 	    detail::make_shared_ptr (
 	      logging::add_scoped_logger_attribute (
 	        logger_, "tskv_format", attributes::make_constant(table)
 	      )
 	    )
+#else
+			YAMAIL_FQNS_COMPAT::shared_ptr<
+			    logging::aux::scoped_logger_attribute<Logger>
+			> (
+			  new logging::aux::scoped_logger_attribute< Logger >(
+			    logger_, "tskv_format", attributes::make_constant(table))
+			)
+#endif
 	  )
 	{
 	}
@@ -98,7 +107,8 @@ public:
 
 private:
   Logger& logger_;
-  YAMAIL_FQNS_COMPAT::shared_ptr<logging::aux::attribute_scope_guard> sentry_;
+  YAMAIL_FQNS_COMPAT::shared_ptr<
+      logging::aux::scoped_logger_attribute<Logger> > sentry_;
 
   template <typename L, typename C, typename Tr, typename A>
   friend secondary_stream<L,C,Tr,A>

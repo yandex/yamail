@@ -126,9 +126,9 @@ struct time_wrapper<boost::chrono::time_point<Clock,Duration> >
 	    CharT const* time_str, CharT const* zone_str) const
 	{
 		namespace xx = YAMAIL_FQNS_COMPAT::chrono;
-		os << time_fmt (xx::timezone::local, time_str) << tp
+		os << xx::time_fmt (xx::timezone::local, time_str) << tp
 		   << timezone_str
-		   << time_fmt (xx::timezone::local, zone_str) << tp;
+		   << xx::time_fmt (xx::timezone::local, zone_str) << tp;
   }
 };
 #endif

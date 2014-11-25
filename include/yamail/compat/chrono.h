@@ -15,6 +15,8 @@
 #include <boost/chrono/ceil.hpp>
 #include <boost/chrono/floor.hpp>
 #include <boost/chrono/round.hpp>
+#include <boost/chrono/io/timezone.hpp>
+#include <boost/chrono/io/time_point_io.hpp>
 #endif // HAVE_STD_CHRONO
 
 #if defined(GENERATING_DOCUMENTATION)
