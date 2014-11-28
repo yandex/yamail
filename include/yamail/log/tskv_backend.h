@@ -7,7 +7,16 @@
 
 #include <boost/phoenix.hpp>
 #include <boost/log/core.hpp>
+#if BOOST_VERSION > 105300
 #include <boost/log/expressions.hpp>
+#else
+#include <boost/log/utility/init/formatter_parser.hpp>
+#include <boost/log/formatters/stream.hpp>
+#include <boost/log/formatters/attr.hpp>
+#include <boost/log/attributes/value_extraction.hpp>
+#include <boost/lambda/lambda.hpp>
+#include <boost/lambda/bind.hpp>
+#endif
 #include <boost/log/sinks/sync_frontend.hpp>
 #include <boost/log/sinks/basic_sink_backend.hpp>
 #include <boost/log/sinks/text_file_backend.hpp>
@@ -15,8 +24,9 @@
 #include <boost/log/sources/record_ostream.hpp>
 #include <boost/log/attributes/value_visitation.hpp>
 #include <boost/log/attributes/scoped_attribute.hpp>
-#include <boost/log/utility/manipulators/add_value.hpp>
-#include <boost/log/utility/setup/formatter_parser.hpp>
+// #include <boost/log/utility/manipulators/add_value.hpp>
+// #include <boost/log/utility/setup/formatter_parser.hpp>
+
 
 #include <boost/chrono/chrono_io.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -32,22 +42,28 @@ namespace typed {
 
 namespace logging = boost::log;
 namespace src = boost::log::sources;
-namespace expr = boost::log::expressions;
 namespace sinks = boost::log::sinks;
 namespace keywords = boost::log::keywords;
 
-#if 1
+#if BOOST_VERSION > 105300
+namespace expr = boost::log::expressions;
+#else
+namespace fmt = boost::log::formatters;
+#endif
+
+#if BOOST_VERSION > 105300
 BOOST_LOG_ATTRIBUTE_KEYWORD (tskv_attributes, 
     "tskv_attributes",
     y::log::typed::attributes_map)
+
 BOOST_LOG_ATTRIBUTE_KEYWORD (tskv_wattributes, 
     "tskv_wattributes",
     y::log::typed::wattributes_map)
-#endif
 
 BOOST_LOG_ATTRIBUTE_KEYWORD (tskv_format, 
     "tskv_format",
     std::string)
+#endif
 
 template <typename CharT, typename Traits, typename Alloc>
 std::basic_ostream<CharT,Traits>&
@@ -69,6 +85,169 @@ operator<< (std::basic_ostream<CharT,Traits>& os,
 	return os;
 }
 
+#if BOOST_VERSION <= 105300
+template <typename CharT, typename Traits, typename Alloc>
+class tskv_formatter
+{
+public:
+  typedef void result_type;
+
+public:
+  struct types : logging::formatter_types<CharT> {};
+
+  explicit tskv_formatter (typename types::string_type const& fmt)
+    : format_ (fmt)
+  {
+  }
+
+  void operator() (
+    typename types::string_type const& name,
+    typename types::ostream_type& strm,
+    typename types::record_type const& rec) const
+  {
+    typedef basic_attributes_map<CharT,Traits,Alloc> attributes_map;
+    attributes_map amap;
+
+#if 0
+    if (logging::extract<attributes_map> (
+          name, rec.attribute_values (), 
+          boost::lambda::var (amap) = boost::lambda::_1))
+    {
+      strm << amap;
+    }
+#else
+    boost::optional<attributes_map> value = 
+      logging::extract<attributes_map> (name, rec.attribute_values ());
+
+    if (!!value)
+      strm << value.get ();
+#endif
+  }
+
+#if 0
+#if BOOST_VERSION <= 105300
+  template <typename Traits2, typename Alloc2>
+  void operator() (
+    typename logging::formatter_types<CharT>::ostream_type& strm,
+    logging::value_ref<basic_attributes_map<CharT,Traits2,Alloc2> const& 
+      value) const
+#else
+	template <typename Stream, typename Traits2, typename Alloc2>
+	void operator() (Stream& strm, 
+    logging::value_ref<basic_attributes_map<CharT,Traits2,Alloc2> > const& 
+      value) const
+#endif
+	{
+		if (value)
+    {
+    	basic_attributes_map<CharT,Traits2,Alloc2> const& map = value.get ();
+    	strm << map;
+    }
+  }
+#endif
+
+private:
+  typename types::string_type format_;
+};
+
+template <typename CharT, typename Traits, typename Alloc>
+tskv_formatter<CharT,Traits,Alloc>
+make_tskv_formatter (std::basic_string<CharT,Traits,Alloc> const& str)
+{
+	return tskv_formatter<CharT,Traits,Alloc> (str);
+}
+
+template <typename CharT> 
+struct formatter_types : logging::formatter_types<CharT> {};
+
+template <
+    typename CharT
+  , typename Traits = std::char_traits<CharT>
+  , typename Alloc = std::allocator<CharT>
+>
+class tskv_formatter_factory
+{
+	static CharT const delimiter_[];
+
+public:
+  typedef formatter_types<CharT> types;
+  typedef tskv_formatter_factory self_t;
+
+  typename types::formatter_type
+  operator() (typename types::string_type const& name,
+      typename types::formatter_factory_args const& args) const
+  {
+    typename types::formatter_factory_args::const_iterator it =
+      args.find (delimiter_);
+
+#if 0
+
+  	if (it != args.end ())
+    {
+    	return boost::phoenix::bind (
+    	      make_tskv_formatter (it->second), fmt::stream,
+    	      fmt::attr<basic_attributes_map<CharT,Traits,Alloc> > (name)
+    	);
+    }
+    else
+    {
+    	return typename types::formatter_type (
+    	    fmt::attr< basic_attributes_map<CharT,Traits,Alloc> >(name));
+    }
+#else
+    namespace lambda = boost::lambda;
+    return typename types::formatter_type (
+        lambda::bind(
+          make_tskv_formatter (it->second), 
+          name, 
+          lambda::_1,
+          lambda::_2
+        )
+    );
+          
+#endif
+  }
+
+};
+
+// works for char and wchar_t
+template <typename C, typename T, typename A>
+C const tskv_formatter_factory<C,T,A>::delimiter_[] =
+{ 'd', 'e', 'l', 'i', 'm', 'i', 't', 'e', 'r', '\0' };
+
+namespace detail {
+
+class tskv_formatter_init_helper
+{
+private:
+	tskv_formatter_init_helper ()
+	{
+#if 1
+		logging::register_formatter_factory ("tskv_attributes",
+		  tskv_formatter_factory<char> ());
+#endif
+#if 1
+		logging::register_formatter_factory ("tskv_wattributes",
+		  tskv_formatter_factory<char> ());
+#endif
+  }
+
+public:
+  inline static tskv_formatter_init_helper&
+  get_instance ()
+  {
+    static tskv_formatter_init_helper instance;
+    return instance;
+  }
+};
+
+static const tskv_formatter_init_helper&
+    tskv_formatter_init_helper_ = tskv_formatter_init_helper::get_instance ();
+
+} // namespace detail
+////////////////////////////////////////////////////////////////////////////////
+#else // if BOOST_VERSION < 105300
+////////////////////////////////////////////////////////////////////////////////
 template <typename CharT, typename Traits, typename Alloc>
 class tskv_formatter
 {
@@ -84,10 +263,12 @@ public:
   }
 
 #if 0
-  template <typename CharT, typename Traits2, typename Alloc2>
+#if BOOST_VERSION <= 105300
+  template <typename Traits2, typename Alloc2>
   void operator() (
-      logging::basic_formatting_ostream<CharT,Traits2,Alloc2>& strm,
-      logging::value_ref<basic_attributes_map<CharT,Traits2,Alloc2> const& value) const
+    typename logging::formatter_types<CharT>::ostream_type& strm,
+    logging::value_ref<basic_attributes_map<CharT,Traits2,Alloc2> const& 
+      value) const
 #else
 	template <typename Stream, typename Traits2, typename Alloc2>
 	void operator() (Stream& strm, 
@@ -101,6 +282,7 @@ public:
     	strm << map;
     }
   }
+#endif
 
 private:
   string_type format_;
@@ -126,6 +308,23 @@ class tskv_formatter_factory
 {
 	static CharT const delimiter_[];
 
+#if 0 // BOOST_VERSION <= 105300
+  struct formatter_functor {
+    logging::attribute_name name_;
+
+    formatter_functor (logging::attribute_name const& n) : name_ (n) {}
+
+    void operator() (logging::record_view const& rec, 
+        logging::basic_formatting_ostream<CharT>& strm) const
+    {
+      strm << logging::extract<
+        basic_attributes_map<CharT,Traits,Alloc> 
+      > (name_, rec);
+    }
+      
+  };
+#endif
+
 public:
   typedef tskv_formatter_factory self_t;
 
@@ -136,6 +335,20 @@ public:
 
   	typename self_t::args_map::const_iterator it = args.find (delimiter_);
 
+#if BOOST_VERSION <= 105300
+  	if (it != args.end ())
+    {
+    	return boost::phoenix::bind (
+    	      make_tskv_formatter (it->second), fmt::stream,
+    	      fmt::attr<basic_attributes_map<CharT,Traits,Alloc> > (name)
+    	);
+    }
+    else
+    {
+    	return fmt::stream 
+    	    << fmt::attr< basic_attributes_map<CharT,Traits,Alloc> >(name);
+    }
+#else
   	if (it != args.end ())
     {
     	return boost::phoenix::bind (
@@ -148,6 +361,7 @@ public:
     	return expr::stream 
     	    << expr::attr< basic_attributes_map<CharT,Traits,Alloc> >(name);
     }
+#endif
   }
 };
 
@@ -186,6 +400,7 @@ static const tskv_formatter_init_helper&
     tskv_formatter_init_helper_ = tskv_formatter_init_helper::get_instance ();
 
 } // namespace detail
+#endif // BOOST_VERSION > 105300
 
 } // namespace typed
 #if defined(GENERATING_DOCUMENTATION)

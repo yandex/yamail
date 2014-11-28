@@ -12,8 +12,11 @@
 #include <boost/version.hpp>
 #include <boost/thread.hpp>
 
+// this_thread::get_id
 #if BOOST_VERSION >= 105500
 # include <boost/log/detail/thread_id.hpp>
+#else
+# include <boost/thread.hpp>
 #endif
 
 #if defined(GENERATING_DOCUMENTATION)
@@ -266,7 +269,6 @@ struct ppid_attr_helper
   }
 };
 
-#if BOOST_VERSION >= 105500
 struct tid_attr_helper
 {
 	template <typename C, typename Tr, typename A>
@@ -274,7 +276,12 @@ struct tid_attr_helper
 	operator() () const
 	{
 		return basic_make_attr<C,Tr,A> (arg_tid, 
-		    boost::log::aux::this_thread::get_id ());
+#if BOOST_VERSION >= 105500
+		    boost::log::aux::this_thread::get_id ()
+#else
+        boost::this_thread::get_id ()
+#endif
+    );
   }
 
 	template <typename C, typename Tr, typename A>
@@ -284,7 +291,6 @@ struct tid_attr_helper
 		return basic_make_attr<C,Tr,A> (arg_tid, tid);
   }
 };
-#endif
 
 struct process_name_attr_helper
 {
@@ -326,10 +332,8 @@ template<> struct is_predefined<pid_attr_helper>
 template<> struct is_predefined<ppid_attr_helper> 
 { static const bool value = true; };
 
-#if BOOST_VERSION >= 105500
 template<> struct is_predefined<tid_attr_helper> 
 { static const bool value = true; };
-#endif
 
 template<> struct is_predefined<process_name_attr_helper> 
 { static const bool value = true; };
@@ -353,9 +357,7 @@ namespace {
 const detail::time_attr_helper time_attr = detail::time_attr_helper ();
 const detail::pid_attr_helper pid_attr = detail::pid_attr_helper ();
 const detail::ppid_attr_helper ppid_attr = detail::ppid_attr_helper ();
-#if BOOST_VERSION >= 105500
 const detail::tid_attr_helper tid_attr = detail::tid_attr_helper ();
-#endif
 const detail::process_name_attr_helper process_name_attr =
     detail::process_name_attr_helper ();
 const detail::priority_attr_helper priority_attr = 

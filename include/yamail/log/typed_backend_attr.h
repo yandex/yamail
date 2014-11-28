@@ -6,7 +6,7 @@
 #include <yamail/log/typed.h>
 
 #include <boost/log/attributes/attribute_value.hpp>
-#include <boost/log/attributes/attribute_value_impl.hpp>
+// #include <boost/log/attributes/attribute_value_impl.hpp>
 
 #if 0
 #if defined(GENERATING_DOCUMENTATION)
