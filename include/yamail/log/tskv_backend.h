@@ -9,6 +9,7 @@
 #include <boost/log/core.hpp>
 #if BOOST_VERSION > 105300
 #include <boost/log/expressions.hpp>
+#include <boost/log/utility/setup/formatter_parser.hpp>
 #else
 #include <boost/log/utility/init/formatter_parser.hpp>
 #include <boost/log/formatters/stream.hpp>
@@ -25,7 +26,6 @@
 #include <boost/log/attributes/value_visitation.hpp>
 #include <boost/log/attributes/scoped_attribute.hpp>
 // #include <boost/log/utility/manipulators/add_value.hpp>
-// #include <boost/log/utility/setup/formatter_parser.hpp>
 
 
 #include <boost/chrono/chrono_io.hpp>
@@ -108,43 +108,12 @@ public:
     typedef basic_attributes_map<CharT,Traits,Alloc> attributes_map;
     attributes_map amap;
 
-#if 0
-    if (logging::extract<attributes_map> (
-          name, rec.attribute_values (), 
-          boost::lambda::var (amap) = boost::lambda::_1))
-    {
-      strm << amap;
-    }
-#else
     boost::optional<attributes_map> value = 
       logging::extract<attributes_map> (name, rec.attribute_values ());
 
     if (!!value)
       strm << value.get ();
-#endif
   }
-
-#if 0
-#if BOOST_VERSION <= 105300
-  template <typename Traits2, typename Alloc2>
-  void operator() (
-    typename logging::formatter_types<CharT>::ostream_type& strm,
-    logging::value_ref<basic_attributes_map<CharT,Traits2,Alloc2> const& 
-      value) const
-#else
-	template <typename Stream, typename Traits2, typename Alloc2>
-	void operator() (Stream& strm, 
-    logging::value_ref<basic_attributes_map<CharT,Traits2,Alloc2> > const& 
-      value) const
-#endif
-	{
-		if (value)
-    {
-    	basic_attributes_map<CharT,Traits2,Alloc2> const& map = value.get ();
-    	strm << map;
-    }
-  }
-#endif
 
 private:
   typename types::string_type format_;
@@ -180,21 +149,6 @@ public:
     typename types::formatter_factory_args::const_iterator it =
       args.find (delimiter_);
 
-#if 0
-
-  	if (it != args.end ())
-    {
-    	return boost::phoenix::bind (
-    	      make_tskv_formatter (it->second), fmt::stream,
-    	      fmt::attr<basic_attributes_map<CharT,Traits,Alloc> > (name)
-    	);
-    }
-    else
-    {
-    	return typename types::formatter_type (
-    	    fmt::attr< basic_attributes_map<CharT,Traits,Alloc> >(name));
-    }
-#else
     namespace lambda = boost::lambda;
     return typename types::formatter_type (
         lambda::bind(
@@ -204,8 +158,6 @@ public:
           lambda::_2
         )
     );
-          
-#endif
   }
 
 };
@@ -262,19 +214,10 @@ public:
   {
   }
 
-#if 0
-#if BOOST_VERSION <= 105300
-  template <typename Traits2, typename Alloc2>
-  void operator() (
-    typename logging::formatter_types<CharT>::ostream_type& strm,
-    logging::value_ref<basic_attributes_map<CharT,Traits2,Alloc2> const& 
-      value) const
-#else
 	template <typename Stream, typename Traits2, typename Alloc2>
 	void operator() (Stream& strm, 
     logging::value_ref<basic_attributes_map<CharT,Traits2,Alloc2> > const& 
       value) const
-#endif
 	{
 		if (value)
     {
@@ -282,7 +225,6 @@ public:
     	strm << map;
     }
   }
-#endif
 
 private:
   string_type format_;
@@ -308,23 +250,6 @@ class tskv_formatter_factory
 {
 	static CharT const delimiter_[];
 
-#if 0 // BOOST_VERSION <= 105300
-  struct formatter_functor {
-    logging::attribute_name name_;
-
-    formatter_functor (logging::attribute_name const& n) : name_ (n) {}
-
-    void operator() (logging::record_view const& rec, 
-        logging::basic_formatting_ostream<CharT>& strm) const
-    {
-      strm << logging::extract<
-        basic_attributes_map<CharT,Traits,Alloc> 
-      > (name_, rec);
-    }
-      
-  };
-#endif
-
 public:
   typedef tskv_formatter_factory self_t;
 
@@ -335,20 +260,6 @@ public:
 
   	typename self_t::args_map::const_iterator it = args.find (delimiter_);
 
-#if BOOST_VERSION <= 105300
-  	if (it != args.end ())
-    {
-    	return boost::phoenix::bind (
-    	      make_tskv_formatter (it->second), fmt::stream,
-    	      fmt::attr<basic_attributes_map<CharT,Traits,Alloc> > (name)
-    	);
-    }
-    else
-    {
-    	return fmt::stream 
-    	    << fmt::attr< basic_attributes_map<CharT,Traits,Alloc> >(name);
-    }
-#else
   	if (it != args.end ())
     {
     	return boost::phoenix::bind (
@@ -361,7 +272,6 @@ public:
     	return expr::stream 
     	    << expr::attr< basic_attributes_map<CharT,Traits,Alloc> >(name);
     }
-#endif
   }
 };
 

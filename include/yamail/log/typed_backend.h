@@ -5,7 +5,9 @@
 #include <yamail/log/namespace.h>
 #include <yamail/log/typed.h>
 #include <yamail/log/typed_predefined.h>
+#if BOOST_VERSION <= 105300
 #include <yamail/log/compat.h>
+#endif
 
 #include <yamail/compat/shared_ptr.h>
 
@@ -148,21 +150,25 @@ public:
 
   ~primary_stream ()
   {
-#if BOOST_LOG > 105300
-    namespace compat = attributes;
-#endif
-
+#if BOOST_VERSION <= 105300
     typedef typename boost::log::aux::make_embedded_string_type<
              typename boost::remove_reference< std::basic_string<C,Tr,A> >::type
                   >::type embedded;
 
+    typedef attributes::constant<embedded> constant_embedded;
+    typedef attributes::constant<typename primary_stream::attributes_map_t>
+        constant_attributes_map;
+
     BOOST_LOG_SCOPED_LOGGER_ATTR_CTOR (logger_, "tskv_format", 
-        attributes::constant<embedded>, (compat::make_constant(table_)));
+        constant_embedded, (compat::make_constant(table_)));
 
     BOOST_LOG_SCOPED_LOGGER_ATTR_CTOR (logger_, "tskv_attributes", 
-      attributes::constant<typename primary_stream::attributes_map_t>,
-      (compat::make_constant (this->amap ())));
+      constant_attributes_map, (compat::make_constant (this->amap ())));
+#else
+    BOOST_LOG_SCOPED_LOGGER_TAG (logger_, "tskv_format", table_);
 
+    BOOST_LOG_SCOPED_LOGGER_TAG (logger_, "tskv_attributes", this->amap ());
+#endif
     BOOST_LOG(logger_) << "";
 
   }
