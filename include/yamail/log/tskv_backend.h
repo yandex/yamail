@@ -72,7 +72,7 @@ operator<< (std::basic_ostream<CharT,Traits>& os,
 
   typedef typename attr<CharT,Traits,Alloc>::name attr_name;
 #if YAMAIL_CPP >= 11
-	for (auto const& aname, cascade_keys (map))
+	for (auto const& aname: cascade_keys (map))
 #else
   BOOST_FOREACH (attr_name const& aname, cascade_keys (map))
 #endif
