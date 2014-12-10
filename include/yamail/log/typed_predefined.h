@@ -7,7 +7,7 @@
 
 #include <yamail/compat/chrono.h>
 
-#include <time.h> // timespec and co.
+#include <ctime> // timespec and co.
 
 #include <boost/version.hpp>
 #include <boost/thread.hpp>
@@ -17,6 +17,11 @@
 # include <boost/log/detail/thread_id.hpp>
 #else
 # include <boost/thread.hpp>
+#endif
+
+#if !defined(HAVE_STD_CHRONO) || !HAVE_STD_CHRONO
+# include <boost/tuple/tuple.hpp>
+# include <boost/static_assert.hpp>
 #endif
 
 #if defined(GENERATING_DOCUMENTATION)
@@ -103,7 +108,119 @@ struct time_wrapper<std::chrono::time_point<Clock,Duration> >
 		   << time_fmt (cchrono::local, zone_str) << tp;
   }
 };
-#else
+#else // using boost::chrono below
+
+// convert time_point<system_clock> into tm
+// See
+// http://stackoverflow.com/questions/16773285/how-to-convert-stdchronotime-point-to-stdtm-without-using-time-t
+
+
+// Returns year/month/day triple in civil calendar
+// Preconditions:  z is number of days since 1970-01-01 and is in the range:
+//                   [numeric_limits<Int>::min(), numeric_limits<Int>::max()-719468].
+template <class Int>
+_constexpr
+boost::tuple<Int, unsigned, unsigned>
+civil_from_days(Int z) _noexcept
+{
+    BOOST_STATIC_ASSERT_MSG(std::numeric_limits<unsigned>::digits >= 18,
+             "This algorithm has not been ported to a 16 bit unsigned integer");
+    BOOST_STATIC_ASSERT_MSG(std::numeric_limits<Int>::digits >= 20,
+             "This algorithm has not been ported to a 16 bit signed integer");
+    z += 719468;
+    const Int era = (z >= 0 ? z : z - 146096) / 146097;
+    const unsigned doe = static_cast<unsigned>(z - era * 146097);          // [0, 146096]
+    const unsigned yoe = (doe - doe/1460 + doe/36524 - doe/146096) / 365;  // [0, 399]
+    const Int y = static_cast<Int>(yoe) + era * 400;
+    const unsigned doy = doe - (365*yoe + yoe/4 - yoe/100);                // [0, 365]
+    const unsigned mp = (5*doy + 2)/153;                                   // [0, 11]
+    const unsigned d = doy - (153*mp+2)/5 + 1;                             // [1, 31]
+    const unsigned m = mp + (mp < 10 ? 3 : -9);                            // [1, 12]
+    return boost::tuple<Int, unsigned, unsigned>(y + (m <= 2), m, d);
+}
+
+
+template <class To, class Rep, class Period>
+To
+round_down(const compat::chrono::duration<Rep, Period>& d)
+{
+    To t = compat::chrono::duration_cast<To>(d);
+    if (t > d)
+        --t;
+    return t;
+}
+
+// Returns number of days since civil 1970-01-01.  Negative values indicate
+//    days prior to 1970-01-01.
+// Preconditions:  y-m-d represents a date in the civil (Gregorian) calendar
+//                 m is in [1, 12]
+//                 d is in [1, last_day_of_month(y, m)]
+//                 y is "approximately" in
+//                   [numeric_limits<Int>::min()/366, numeric_limits<Int>::max()/366]
+//                 Exact range of validity is:
+//                 [civil_from_days(numeric_limits<Int>::min()),
+//                  civil_from_days(numeric_limits<Int>::max()-719468)]
+template <class Int>
+_constexpr Int
+days_from_civil(Int y, unsigned m, unsigned d) _noexcept
+{
+    BOOST_STATIC_ASSERT_MSG(std::numeric_limits<unsigned>::digits >= 18,
+             "This algorithm has not been ported to a 16 bit unsigned integer");
+    BOOST_STATIC_ASSERT_MSG(std::numeric_limits<Int>::digits >= 20,
+             "This algorithm has not been ported to a 16 bit signed integer");
+    y -= m <= 2;
+    const Int era = (y >= 0 ? y : y-399) / 400;
+    const unsigned yoe = static_cast<unsigned>(y - era * 400);      // [0, 399]
+    const unsigned doy = (153*(m + (m > 2 ? -3 : 9)) + 2)/5 + d-1;  // [0, 365]
+    const unsigned doe = yoe * 365 + yoe/4 - yoe/100 + doy;         // [0, 146096]
+    return era * 146097 + static_cast<Int>(doe) - 719468;
+}
+
+
+template <class Int>
+_constexpr unsigned weekday_from_days(Int z) _noexcept
+{
+    return static_cast<unsigned>(z >= -4 ? (z+4) % 7 : (z+5) % 7 + 6);
+}
+
+
+template <class Duration>
+std::tm
+make_utc_tm(compat::chrono::time_point<
+    compat::chrono::system_clock, Duration> tp)
+{
+  using namespace boost;
+  using namespace compat::chrono;
+
+  typedef duration<int, ratio_multiply<hours::period, ratio<24> > > days;
+  // t is time duration since 1970-01-01
+  Duration t = tp.time_since_epoch();
+  // d is days since 1970-01-01
+  days d = round_down<days>(t);
+  // t is now time duration since midnight of day d
+  t -= d;
+  // break d down into year/month/day
+  int year;
+  unsigned month;
+  unsigned day;
+  boost::tie(year, month, day) = civil_from_days(d.count());
+  // start filling in the tm with calendar info
+  std::tm tm = {0};
+  tm.tm_year = year - 1900;
+  tm.tm_mon = month - 1;
+  tm.tm_mday = day;
+  tm.tm_wday = weekday_from_days(d.count());
+  tm.tm_yday = d.count() - days_from_civil(year, 1, 1);
+  // Fill in the time
+  tm.tm_hour = duration_cast<hours>(t).count();
+  t -= hours(tm.tm_hour);
+  tm.tm_min = duration_cast<minutes>(t).count();
+  t -= minutes(tm.tm_min);
+  tm.tm_sec = duration_cast<seconds>(t).count();
+  return tm;
+}
+
+
 template <typename Clock, typename Duration>
 struct time_wrapper<boost::chrono::time_point<Clock,Duration> >
   : time_wrapper_base<
@@ -126,10 +243,29 @@ struct time_wrapper<boost::chrono::time_point<Clock,Duration> >
 	    TimePoint const& tp, CharT const* timezone_str, 
 	    CharT const* time_str, CharT const* zone_str) const
 	{
+    std::tm tm = make_utc_tm (tp);
+
+    char tmp_buf[80]; // "80 bytes is enough for everybode"
+
+    if (0 == std::strftime (tmp_buf, sizeof (tmp_buf), time_str, &tm))
+    {
+      BOOST_THROW_EXCEPTION (std::runtime_error ("invalid time"));
+    }
+
+    os << tmp_buf;
+
+    if (0 == std::strftime (tmp_buf, sizeof (tmp_buf), zone_str, &tm))
+    {
+      BOOST_THROW_EXCEPTION (std::runtime_error ("invalid time zone"));
+    }
+
+    os << timezone_str << tmp_buf;
+#if 0
 		namespace cchrono = YAMAIL_FQNS_COMPAT::chrono;
 		os << cchrono::time_fmt (cchrono::timezone::local, time_str) << tp
 		   << timezone_str
 		   << cchrono::time_fmt (cchrono::timezone::local, zone_str) << tp;
+#endif
   }
 };
 #endif
@@ -338,6 +474,7 @@ template<> struct is_predefined<process_name_attr_helper>
 
 template<> struct is_predefined<priority_attr_helper> 
 { static const bool value = true; };
+
 } // namespace detail
 
 

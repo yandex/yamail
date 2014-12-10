@@ -68,13 +68,11 @@ std::basic_ostream<CharT,Traits>&
 operator<< (std::basic_ostream<CharT,Traits>& os, 
     y::log::typed::basic_attributes_map<CharT,Traits,Alloc> const& map)
 {
-  bool first = true;
-
+#if YAMAIL_CPP < 11
   typedef typename attr<CharT,Traits,Alloc>::name attr_name;
-#if YAMAIL_CPP >= 11
-	for (auto const& aname: cascade_keys (map))
-#else
   BOOST_FOREACH (attr_name const& aname, cascade_keys (map))
+#else
+	for (auto const& aname: cascade_keys (map))
 #endif
   {
     if (boost::optional<typename attr<CharT,Traits,Alloc>::value const&> aval =

@@ -10,7 +10,9 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/logic/tribool.hpp>
 
-#include <boost/foreach.hpp>
+#if YAMAIL_CPP < 11
+# include <boost/foreach.hpp>
+#endif
 
 #include <map>
 
@@ -48,7 +50,11 @@ public:
 
     read_xml (path, pt);
 
+#if YAMAIL_CPP < 11
     BOOST_FOREACH (ptree::value_type const& f, pt.get_child ("log.fields"))
+#else
+		for (ptree::value_type const& f: pt.get_child ("log.fields"))
+#endif
     {
       using boost::tribool;
       tribool has_name = false;
@@ -64,8 +70,13 @@ public:
 
       def.descr = f.second.data ();
 
+#if YAMAIL_CPP < 11
       BOOST_FOREACH (ptree::value_type const& a, 
             f.second.get_child ("<xmlattr>", empty_ptree ()))
+#else
+			for (ptree::value_type const& a:
+				    f.second.get_child ("<xmlattr>", empty_ptree ()))
+#endif
       {
         if (iequals (a.first, "name"))
         {

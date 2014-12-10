@@ -452,7 +452,11 @@ public:
   : proxy_ (new proxy)
   {
     proxy_->parent = parent;
+#if YAMAIL_CPP < 11
 		BOOST_FOREACH (attr_type const& attr, attrs)
+#else
+		for (attr_type const& attr: attrs)
+#endif
 		{
     	proxy_->map.insert (attr);
     }
@@ -516,7 +520,11 @@ public:
   basic_attributes_map&
   replace (attr_list const& attrs)
   {
+#if YAMAIL_CPP < 11
 		BOOST_FOREACH (attr_type const& attr, attrs)
+#else
+		for (attr_name const& attr: attrs)
+#endif
     {
     	replace (attr);
     }
@@ -564,7 +572,11 @@ public:
   basic_attributes_map&
   erase (name_list const& names)
   {
+#if YAMAIL_CPP < 11
 		BOOST_FOREACH (attr_name const& name, names)
+#else
+		for (attr_name const& name: names)
+#endif
     {
       erase (name);
     }
