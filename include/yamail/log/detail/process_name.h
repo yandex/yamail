@@ -65,6 +65,8 @@ YAMAIL_FQNS_LOG_BEGIN
 
 namespace detail {
 
+namespace filesystem = ::boost::filesystem;
+
 //! The function returns the current process name
 std::string get_process_name()
 {
