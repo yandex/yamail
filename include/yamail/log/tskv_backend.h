@@ -27,11 +27,9 @@
 #include <boost/log/attributes/scoped_attribute.hpp>
 // #include <boost/log/utility/manipulators/add_value.hpp>
 
-
-// #include <boost/chrono/chrono_io.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
-
-#include <boost/foreach.hpp>
+#if YAMAIL_CPP < 11
+# include <boost/foreach.hpp>
+#endif
 
 #if defined(GENERATING_DOCUMENTATION)
 namespace yamail { namespace log {
@@ -73,7 +71,11 @@ operator<< (std::basic_ostream<CharT,Traits>& os,
   bool first = true;
 
   typedef typename attr<CharT,Traits,Alloc>::name attr_name;
+#if YAMAIL_CPP >= 11
+	for (auto const& aname, cascade_keys (map))
+#else
   BOOST_FOREACH (attr_name const& aname, cascade_keys (map))
+#endif
   {
     if (boost::optional<typename attr<CharT,Traits,Alloc>::value const&> aval =
     	   cascade_find (map, aname))
