@@ -55,7 +55,7 @@ YAMAIL_FQNS_LOG_END
 
 #include <unistd.h>
 #include <boost/lexical_cast.hpp>
-#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem.hpp>
 
 #if defined(GENERATING_DOCUMENTATION)
 namespace yamail { namespace log {
