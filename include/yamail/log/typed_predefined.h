@@ -40,12 +40,10 @@ public:
   std::basic_ostream<CharT,Traits>&
   output (std::basic_ostream<CharT,Traits>& os) const
   {
-  	namespace xx = YAMAIL_FQNS_COMPAT::chrono;
+  	namespace cchrono = YAMAIL_FQNS_COMPAT::chrono;
 
-  	YAMAIL_FQNS_COMPAT::chrono::system_clock::time_point tmp =
-	    xx::time_point_cast<
-	        YAMAIL_FQNS_COMPAT::chrono::system_clock::duration
-	    > (tp_);
+  	cchrono::system_clock::time_point tmp =
+	    cchrono::time_point_cast<cchrono::system_clock::duration> (tp_);
 
     const static CharT fmt_time[] = {
     	'%', 'Y', '-', '%', 'm', '-', '%', 'd', ' ',
@@ -59,9 +57,9 @@ public:
 
 #if 0
   	os 
-  	  << time_fmt (xx::local, fmt_time) << tmp
+  	  << time_fmt (cchrono::local, fmt_time) << tmp
   	  << timezone
-  	  << time_fmt (xx::local, fmt_zone) << tmp
+  	  << time_fmt (cchrono::local, fmt_zone) << tmp
     ;
 #else
 		static_cast<Derived const&> (*this).
@@ -99,10 +97,10 @@ struct time_wrapper<std::chrono::time_point<Clock,Duration> >
 	    TimePoint const& tp, CharT const* timezone_str, 
 	    CharT const* time_str, CharT const* zone_str) const
 	{
-		namespace xx = YAMAIL_FQNS_COMPAT::chrono;
-		os << time_fmt (xx::local, time_str) << tp
+		namespace cchrono = YAMAIL_FQNS_COMPAT::chrono;
+		os << time_fmt (cchrono::local, time_str) << tp
 		   << timezone_str
-		   << time_fmt (xx::local, zone_str) << tp;
+		   << time_fmt (cchrono::local, zone_str) << tp;
   }
 };
 #else
@@ -128,10 +126,10 @@ struct time_wrapper<boost::chrono::time_point<Clock,Duration> >
 	    TimePoint const& tp, CharT const* timezone_str, 
 	    CharT const* time_str, CharT const* zone_str) const
 	{
-		namespace xx = YAMAIL_FQNS_COMPAT::chrono;
-		os << xx::time_fmt (xx::timezone::local, time_str) << tp
+		namespace cchrono = YAMAIL_FQNS_COMPAT::chrono;
+		os << cchrono::time_fmt (cchrono::timezone::local, time_str) << tp
 		   << timezone_str
-		   << xx::time_fmt (xx::timezone::local, zone_str) << tp;
+		   << cchrono::time_fmt (cchrono::timezone::local, zone_str) << tp;
   }
 };
 #endif
