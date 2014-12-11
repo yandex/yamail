@@ -6,11 +6,8 @@
 # include <yamail/utility/apply.h>
 # include <yamail/utility/capture.h>
 # include <yamail/utility/in.h>
-<<<<<<< HEAD
-# include <yamail/utility/variant.h>
-=======
->>>>>>> typed-log
 # include <yamail/utility/rref.h>
+# include <yamail/utility/variant.h>
 #endif
 
 #include <yamail/utility/update_iterator.h>
