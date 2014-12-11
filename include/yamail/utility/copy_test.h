@@ -27,10 +27,6 @@ public:
   template <typename U> copy_test (U) : id_ (id ()) { print ("CTOR_U"); }
   copy_test (copy_test const& x) : id_ (id ()) { print ("CTOR_COPY", x); }
 
-#if YAMAIL_USE_RVALUES
-  copy_test (copy_test&& x) : id_ (id ()) { print ("CTOR_MOVE", x); }
-#endif
-
   copy_test& operator= (copy_test const& x)
   {
     print ("ASSIGN_COPY", x);
@@ -38,6 +34,7 @@ public:
   }
 
 #if YAMAIL_USE_RVALUES
+  copy_test (copy_test&& x) : id_ (id ()) { print ("CTOR_MOVE", x); }
   copy_test& operator= (copy_test&& x)
   {
     print ("ASSIGN_MOVE", x);
@@ -55,8 +52,6 @@ public:
     print ("PING");
     return id_;
   }
-
-  // int i = 0;
 
 private:
   void print_helper (std::string const& s) const

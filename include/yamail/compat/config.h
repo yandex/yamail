@@ -1,6 +1,7 @@
 #ifndef _YAMAIL_COMPAT_CONFIG_H_
 #define _YAMAIL_COMPAT_CONFIG_H_
 #include <yamail/config.h>
+#include <yamail/cplusplus.h>
 
 // define YAMAIL_COMPAT_USE_BOOST to use boost libraries everywhere
 
@@ -13,14 +14,24 @@
 #endif
 
 #if !defined(YAMAIL_COMPAT_USE_BOOST) && YAMAIL_COMPAT_CPP_VERSION >= 201400L
+
 // C++ 14
 # if !defined(HAVE_STD_MAKE_UNIQUE)
 #  define HAVE_STD_MAKE_UNIQUE 1
+# endif
+
+# if !defined(HAVE_STD_OPTIONAL)
+#  define HAVE_STD_OPTIONAL 1
 # endif
 #else
 # if !defined(HAVE_STD_MAKE_UNIQUE)
 #  define HAVE_STD_MAKE_UNIQUE 0
 # endif
+
+# if !defined(HAVE_STD_OPTIONAL)
+#  define HAVE_STD_OPTIONAL 0
+# endif
+
 #endif
 
 #if !defined(YAMAIL_COMPAT_USE_BOOST) && YAMAIL_COMPAT_CPP_VERSION >= 201100L
@@ -65,8 +76,16 @@
 #  define HAVE_STD_TYPE_TRAITS 1
 # endif
 
+# if !defined(HAVE_STD_ADDRESSOF)
+#  define HAVE_STD_ADDRESSOF 1
+# endif
+
 # if !defined(HAVE_STATIC_ASSERT)
 #  define HAVE_STATIC_ASSERT 1
+# endif
+
+# if !defined(HAVE_STD_RATIO)
+#  define HAVE_STD_RATIO 1
 # endif
 
 #else
@@ -112,8 +131,16 @@
 #  define HAVE_STD_TYPE_TRAITS 0
 # endif
 
+# if !defined(HAVE_STD_ADDRESSOF)
+#  define HAVE_STD_ADDRESSOF 0
+# endif
+
 # if !defined(HAVE_STATIC_ASSERT)
 #  define HAVE_STATIC_ASSERT 0
+# endif
+
+# if !defined(HAVE_STD_RATIO)
+#  define HAVE_STD_RATIO 0
 # endif
 
 #endif // C++ 11

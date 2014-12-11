@@ -3,11 +3,24 @@
 #include <yamail/config.h>
 #include <yamail/compat/config.h>
 #include <yamail/compat/namespace.h>
+#include <yamail/compat/basics.h> // for compat::ratio
 
 #if defined(HAVE_STD_CHRONO) && HAVE_STD_CHRONO
 # include <chrono>
+# include <yamail/compat/chrono_io.h>
 #else 
-# include <boost/chrono.hpp>
+#include <boost/chrono.hpp>
+#include <boost/ratio.hpp>
+#if 0
+#include <boost/chrono/chrono.hpp>
+#include <boost/chrono/process_cpu_clocks.hpp>
+#include <boost/chrono/thread_clock.hpp>
+#include <boost/chrono/ceil.hpp>
+#include <boost/chrono/floor.hpp>
+#include <boost/chrono/round.hpp>
+#include <boost/chrono/io/timezone.hpp>
+#include <boost/chrono/io/time_point_io.hpp>
+#endif
 #endif // HAVE_STD_CHRONO
 
 #if defined(GENERATING_DOCUMENTATION)
