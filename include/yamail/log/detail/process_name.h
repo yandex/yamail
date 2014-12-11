@@ -25,7 +25,8 @@ YAMAIL_FQNS_LOG_BEGIN
 namespace detail {
 
 //! The function returns the current process name
-std::string get_process_name()
+inline std::string 
+get_process_name()
 {
   std::string buf;
   buf.resize(PATH_MAX);
@@ -68,7 +69,8 @@ namespace detail {
 namespace filesystem = ::boost::filesystem;
 
 //! The function returns the current process name
-std::string get_process_name()
+inline std::string 
+get_process_name()
 {
   if (filesystem::exists("/proc/self/exe"))
     return filesystem::read_symlink("/proc/self/exe").filename().string();
