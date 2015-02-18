@@ -223,7 +223,7 @@ inline basic_record_ostream< CharT >&
 operator<< (basic_record_ostream< CharT >& strm, 
   add_value_manip< RefT > const& manip)
 {
-  typedef typename aux::make_embedded_string_type< 
+  typedef typename boost::log::aux::make_embedded_string_type< 
     typename add_value_manip< RefT >::value_type 
   >::type value_type;
   attribute_value value(

@@ -57,6 +57,7 @@ public:
   {
   	return apply (f, t, std::forward<Ts> (args)...);
   }
+
 #if YAMAIL_CPP < 14 // XXX probably need some more clever workaround here.
   template <typename ...Ts> auto operator() (Ts&& ...args) const
       -> decltype (apply (f, t, std::forward<Ts> (args)...))
