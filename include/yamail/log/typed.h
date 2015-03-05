@@ -104,11 +104,23 @@ well_known_attr (well_known_attr_enum f) _noexcept
 	return attributes[ static_cast<int> (f) ];
 }
 
+//_constexpr 
+inline char const* 
+well_known_attr_for_output (well_known_attr_enum f) _noexcept
+{
+	static _constexpr char const* attributes[] = {
+		"timestamp", "PROCESS", "PID", "PPID", "TID", "PRIORITY"
+	};
+
+  
+	return attributes[ static_cast<int> (f) ];
+}
+
 template <typename CharT, typename Traits>
 std::basic_ostream<CharT, Traits>&
 operator<< (std::basic_ostream<CharT, Traits>& os, well_known_attr_enum f)
 {
-	return os << well_known_attr (f);
+	return os << well_known_attr_for_output (f);
 }
 
 template <

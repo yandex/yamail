@@ -63,7 +63,8 @@ public:
 #if 0
   	os 
   	  << time_fmt (cchrono::local, fmt_time) << tmp
-  	  << timezone
+  	  << timezone 
+  	  << '='
   	  << time_fmt (cchrono::local, fmt_zone) << tmp
     ;
 #else
@@ -105,6 +106,7 @@ struct time_wrapper<std::chrono::time_point<Clock,Duration> >
 		namespace cchrono = YAMAIL_FQNS_COMPAT::chrono;
 		os << time_fmt (cchrono::local, time_str) << tp
 		   << timezone_str
+		   << '='
 		   << time_fmt (cchrono::local, zone_str) << tp;
   }
 };
@@ -259,11 +261,12 @@ struct time_wrapper<boost::chrono::time_point<Clock,Duration> >
       BOOST_THROW_EXCEPTION (std::runtime_error ("invalid time zone"));
     }
 
-    os << timezone_str << tmp_buf;
+    os << timezone_str << '=' << tmp_buf;
 #if 0
 		namespace cchrono = YAMAIL_FQNS_COMPAT::chrono;
 		os << cchrono::time_fmt (cchrono::timezone::local, time_str) << tp
 		   << timezone_str
+		   << '='
 		   << cchrono::time_fmt (cchrono::timezone::local, zone_str) << tp;
 #endif
   }
