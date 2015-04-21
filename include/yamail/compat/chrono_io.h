@@ -132,6 +132,9 @@ template <class charT, class Traits, class Duration>
 #include <chrono>
 #include <yamail/compat/ratio_io.h>
 
+#include <boost/utility/enable_if.hpp>
+#include <boost/type_traits/is_same.hpp>
+
 // _LIBCPP_BEGIN_NAMESPACE_STD
 namespace std {
 
@@ -695,7 +698,10 @@ locale::id
 timepunct<CharT>::id;
 
 template <class _CharT, class _Traits, class _Duration>
-basic_ostream<_CharT, _Traits>&
+typename boost::enable_if_c<
+    ! boost::is_same<steady_clock, system_clock>::value
+  , basic_ostream<_CharT, _Traits>
+>::type&
 operator<<(basic_ostream<_CharT, _Traits>& __os,
            const time_point<steady_clock, _Duration>& __tp)
 {
@@ -778,7 +784,10 @@ time_fmt(timezone f)
 }
 
 template <class _CharT, class _Traits, class _Duration>
-basic_istream<_CharT, _Traits>&
+typename boost::enable_if_c<
+    ! boost::is_same<steady_clock, system_clock>::value
+  , basic_istream<_CharT, _Traits>
+>::type&
 operator>>(basic_istream<_CharT, _Traits>& __is,
            time_point<steady_clock, _Duration>& __tp)
 {
