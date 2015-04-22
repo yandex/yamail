@@ -216,6 +216,29 @@ private:
   	return s;
   }
 
+  friend secondary_stream<C,Tr,A> const&
+  operator<< (secondary_stream<C,Tr,A> const& s, 
+      basic_attributes_map<C,Tr,A> const& amap)
+  {
+  	s.amap () = scoped (s.amap ());
+#if YAMAIL_CPP < 11
+    typedef typename attr<C,Tr,A>::name attr_name;
+    BOOST_FOREACH (attr_name const& aname, cascade_keys (amap))
+#else
+    for (auto const& aname: cascade_keys (amap))
+#endif
+    {
+      // TODO: optimize, use stored attributes instead of constructing it again here.
+      if (boost::optional<typename attr<C,Tr,A>::value const&> aval =
+           cascade_find (amap, aname))
+        if (! is_deleted (*aval))
+        {
+          s << typename attr<C,Tr,A>::type (aname, *aval);
+        }
+    }
+
+  	return s;
+  }
 
   template <typename P>
   friend typename boost::enable_if_c<
