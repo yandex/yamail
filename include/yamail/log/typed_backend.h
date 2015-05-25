@@ -258,8 +258,10 @@ secondary_stream<C,Tr,A>
 operator<< (primary_stream_base<C,Tr,A> const& pstream, 
       basic_attributes_map<C,Tr,A> const& amap)
 {
-  pstream.amap () = amap;
-  return secondary_stream<C,Tr,A> (pstream);
+  secondary_stream<C,Tr,A> s(pstream);
+  // add amap attrs to the child attributes map (in the secondary stream)
+  s << amap;
+  return s;
 }
 
 template <typename C, typename Tr, typename A>
