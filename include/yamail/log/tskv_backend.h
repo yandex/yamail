@@ -306,9 +306,6 @@ public:
   }
 };
 
-static const tskv_formatter_init_helper&
-    tskv_formatter_init_helper_ = tskv_formatter_init_helper::get_instance ();
-
 } // namespace detail
 #endif // BOOST_VERSION > 105300
 

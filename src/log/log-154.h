@@ -11,6 +11,7 @@
 #endif
 
 #include <yamail/log/rotate_text_file_backend.h>
+#include <yamail/log/tskv_backend.h>
 
 #include <boost/thread.hpp>
 #include <boost/shared_ptr.hpp>
@@ -333,6 +334,9 @@ void log_init(const boost::property_tree::ptree& cfg)
             boost::make_shared<rotate_text_file_sink_factory>());
     logging::register_sink_factory("SyslogNative",
             boost::make_shared<syslog_native_sink_factory>());
+
+    logging::register_formatter_factory ("tskv_attributes",
+		  boost::make_shared<typed::tskv_formatter_factory<char> > ());
 
     log_load_cfg(cfg);
     boost::shared_ptr < logging::core > pCore = logging::core::get();
