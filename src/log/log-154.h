@@ -31,6 +31,8 @@
 #include <boost/log/utility/setup/from_stream.hpp>
 #include <boost/log/utility/setup/from_settings.hpp>
 
+#include "datetime_formatter.h"
+
 YAMAIL_FQNS_LOG_BEGIN
 
 namespace logging = boost::log;
@@ -323,6 +325,8 @@ void log_init(const boost::property_tree::ptree& cfg)
 {
     typedef logging::basic_formatter_factory<char, severity_level> severity_formatter_factory;
 
+    logging::register_formatter_factory("TimeStamp",
+            boost::make_shared<timestamp_formatter_factory>());
     logging::register_formatter_factory("Severity",
             boost::make_shared<severity_formatter_factory>());
     logging::register_filter_factory("Severity",
