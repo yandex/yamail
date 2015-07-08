@@ -65,6 +65,17 @@ static const char* levels_formatted[] =
 BOOST_STATIC_ASSERT(levels_size == (sizeof (levels_formatted) / sizeof (*levels_formatted)));
 BOOST_STATIC_ASSERT(levels_size == static_cast<size_t>(end_of_sev_level));
 
+namespace detail {
+inline bool bool_from_alpha_param(const boost::optional<std::string>& param, bool default_value)
+{
+    bool result = default_value;
+    std::basic_istringstream<char> strm(param.get());
+    strm.setf(std::ios_base::boolalpha);
+    strm >> result;
+    return result;
+}
+}
+
 template <typename Settings, typename BackendPtr>
 boost::shared_ptr<sinks::basic_formatting_sink_frontend<char> >
 make_frontend(Settings const& settings, BackendPtr& backend)
@@ -75,13 +86,7 @@ make_frontend(Settings const& settings, BackendPtr& backend)
 
 #if !defined(BOOST_LOG_NO_THREADS)
     // Asynchronous
-    bool async = false;
-    if (boost::optional<std::string> param = settings["Asynchronous"])
-    {
-        std::basic_istringstream<char> strm(param.get());
-        strm.setf(std::ios_base::boolalpha);
-        strm >> async;
-    }
+    bool async = detail::bool_from_alpha_param(settings["Asynchronous"], false);
 
     // Construct the frontend, considering Asynchronous parameter
     if (!async)
@@ -151,14 +156,8 @@ class rotate_text_file_sink_factory: public logging::sink_factory<char>
                     std::runtime_error("File name is not specified"));
 
         // Auto flush
-        if (boost::optional<std::string> param = settings["AutoFlush"])
-        {
-            bool f = false;
-            isstream strm(param.get());
-            strm.setf(std::ios_base::boolalpha);
-            strm >> f;
-            backend->auto_flush(f);
-        }
+        bool auto_flush = detail::bool_from_alpha_param(settings["AutoFlush"], false);
+        backend->auto_flush(auto_flush);
 
         // Filter
         logging::filter filt;
@@ -171,13 +170,7 @@ class rotate_text_file_sink_factory: public logging::sink_factory<char>
 
 #if !defined(BOOST_LOG_NO_THREADS)
         // Asynchronous
-        bool async = false;
-        if (boost::optional<std::string> param = settings["Asynchronous"])
-        {
-            isstream strm(param.get());
-            strm.setf(std::ios_base::boolalpha);
-            strm >> async;
-        }
+        bool async = detail::bool_from_alpha_param(settings["Asynchronous"], false);
 
         // Construct the frontend, considering Asynchronous parameter
         if (!async)
