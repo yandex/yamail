@@ -80,8 +80,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTESTS_DIR=\\\"${CMAKE_CURRENT_SOURCE_D
 add_subdirectory(memory)
 add_subdirectory(concurrency)
 
+if (NOT TARGET check)
 add_custom_target( check
 #    COMMAND zerocopy-test
     COMMAND memory-test
     COMMAND future-test
 )
+endif()
