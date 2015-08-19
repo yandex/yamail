@@ -68,6 +68,7 @@ std::basic_ostream<CharT,Traits>&
 operator<< (std::basic_ostream<CharT,Traits>& os, 
     y::log::typed::basic_attributes_map<CharT,Traits,Alloc> const& map)
 {
+  bool first_elem = true;
 #if YAMAIL_CPP < 11
   typedef typename attr<CharT,Traits,Alloc>::name attr_name;
   BOOST_FOREACH (attr_name const& aname, cascade_keys (map))
@@ -79,7 +80,9 @@ operator<< (std::basic_ostream<CharT,Traits>& os,
     	   cascade_find (map, aname))
       if (! is_deleted (*aval))
       {
-        os << '\t' << aname << '=' << *aval;
+        if (!first_elem) os << '\t';
+        os << aname << '=' << *aval;
+        first_elem = false;
       }
   }
 	return os;
